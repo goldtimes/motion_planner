@@ -1,2 +1,0 @@
-set(spencer_social_relation_msgs_MESSAGE_FILES "/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_social_relation_msgs/msg/SocialRelation.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_social_relation_msgs/msg/SocialRelations.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_social_relation_msgs/msg/SocialActivity.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_social_relation_msgs/msg/SocialActivities.msg")
-set(spencer_social_relation_msgs_SERVICE_FILES "")

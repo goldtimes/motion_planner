@@ -1,8 +1,0 @@
-prefix=/motion_ws/devel
-
-Name: common
-Description: Description of common
-Version: 0.0.0
-Cflags: -I/motion_ws/src/core/common/include
-Libs: -L${prefix}/lib -lcommon
-Requires: roscpp

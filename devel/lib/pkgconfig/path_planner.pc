@@ -1,8 +1,0 @@
-prefix=/motion_ws/devel
-
-Name: path_planner
-Description: Description of path_planner
-Version: 0.0.0
-Cflags: -I/motion_ws/src/core/path_planner/include
-Libs: -L${prefix}/lib 
-Requires: voronoi_layer common system_config

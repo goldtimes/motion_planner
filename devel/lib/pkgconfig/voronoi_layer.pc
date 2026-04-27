@@ -1,8 +1,0 @@
-prefix=/motion_ws/devel
-
-Name: voronoi_layer
-Description: Description of voronoi_layer
-Version: 0.0.0
-Cflags: -I/motion_ws/src/plugins/map_plugins/voronoi_layer/include
-Libs: -L${prefix}/lib -lvoronoi_layer
-Requires: costmap_2d dynamic_reconfigure nav_msgs roscpp
