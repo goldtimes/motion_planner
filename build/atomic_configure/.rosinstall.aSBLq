@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /motion_ws/devel/setup.sh

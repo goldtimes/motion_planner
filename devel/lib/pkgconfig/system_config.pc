@@ -1,0 +1,8 @@
+prefix=/motion_ws/devel
+
+Name: system_config
+Description: Description of system_config
+Version: 0.0.0
+Cflags: -I/motion_ws/src/core/system_config/include
+Libs: -L${prefix}/lib -lsystem_config
+Requires: common

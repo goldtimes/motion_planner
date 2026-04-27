@@ -1,0 +1,2 @@
+set(spencer_vision_msgs_MESSAGE_FILES "/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_vision_msgs/msg/PersonImage.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_vision_msgs/msg/PersonImages.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_vision_msgs/msg/PersonROI.msg;/motion_ws/src/plugins/rviz_plugins/spencer_messages/spencer_vision_msgs/msg/PersonROIs.msg")
+set(spencer_vision_msgs_SERVICE_FILES "")
