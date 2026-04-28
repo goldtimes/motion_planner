@@ -14,7 +14,7 @@
  *
  * ********************************************************
  */
-#include "common/util/log.h"
+#include "util/log.h"
 #include "system_config/system_config.h"
 
 namespace rmp::system_config {

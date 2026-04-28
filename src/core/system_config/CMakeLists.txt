@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 2.8.3)
 project(system_config)
 
 add_compile_options(-std=c++17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Protobuf 3 REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
-  # common
+  common
 )
 
 catkin_package(

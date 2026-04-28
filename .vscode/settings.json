@@ -1,3 +1,27 @@
 {
-    "clang-format.executable": "/usr/bin/clang-format-7"
+    "clang-format.executable": "/usr/bin/clang-format-7",
+    "editor.formatOnSave": true,
+    // clangd 核心配置
+    "clangd.arguments": [
+        // 启用全局补全（跨文件）
+        "--all-scopes-completion",
+        // 更详细的补全信息（函数参数、返回值）
+        "--completion-style=detailed",
+        // 启用类型层级显示
+        "--header-insertion=never",
+        // 禁用自动插入头文件（避免干扰）
+        "--header-insertion-decorators",
+        // 启用 clang-tidy 静态检查（代码规范/错误提示）
+        "--clang-tidy",
+        // 启用背景索引（提升大项目（如ROS）的索引速度）
+        "--background-index",
+        // 索引线程数（根据CPU核心数调整，比如8核填4）
+        "-j=4",
+        // 启用缓存（加速二次打开项目）
+        "--compile-commands-dir=${workspaceFolder}/build",
+        // 支持 ROS 的头文件路径（关键！适配 catkin_ws 环境）
+        "--query-driver=/usr/bin/g++",
+        // 忽略无关警告（可选，减少干扰）
+        "--clang-tidy-checks=-*,llvm-*,clang-analyzer-*,modernize-*"
+    ],
 }
