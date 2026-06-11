@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- ===================================================== -->
+  <!-- 测试全局路径规划的完整启动文件                       -->
+  <!-- 启动 Gazebo + 地图 + move_base + 全局规划器          -->
+  <!-- ===================================================== -->
+
+  <!-- 选用的世界和地图 -->
+  <arg name="world" default="warehouse" />
+  <arg name="map"   default="warehouse" />
+
+  <!-- 1. 启动 Gazebo 仿真环境 -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find sim_env)/worlds/$(arg world).world" />
+    <arg name="gui" value="true" />
+    <arg name="use_sim_time" value="true" />
+    <arg name="paused" value="false" />
+  </include>
+
+  <!-- 2. 加载地图（通过 map_server） -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(find sim_env)/maps/$(arg map)/$(arg map).yaml" />
+
+  <!-- 3. 启动机器人模型和状态发布 -->
+  <include file="$(find sim_env)/launch/include/robots/start_robots.launch.xml" />
+
+  <!-- 4. 启动 AMCL 定位 -->
+  <node pkg="amcl" type="amcl" name="amcl">
+    <rosparam file="$(find sim_env)/config/amcl_params.yaml" command="load" />
+  </node>
+
+  <!-- 5. 启动 move_base（包含全局和局部规划器） -->
+  <node pkg="move_base" type="move_base" name="move_base">
+    <!-- 全局代价地图配置 -->
+    <rosparam file="$(find sim_env)/config/costmap/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find sim_env)/config/costmap/global_costmap_plugins.yaml" command="load" />
+
+    <!-- 局部代价地图配置 -->
+    <rosparam file="$(find sim_env)/config/costmap/local_costmap_params.yaml" command="load" />
+
+    <!-- move_base 行为参数 -->
+    <rosparam file="$(find sim_env)/config/move_base_params.yaml" command="load" />
+
+    <!-- 全局规划器（可切换：navfn/NavfnROS 或 global_planner/GlobalPlanner） -->
+    <param name="base_global_planner" value="navfn/NavfnROS" />
+    <!-- <param name="base_global_planner" value="global_planner/GlobalPlanner" /> -->
+
+    <!-- 局部规划器 -->
+    <param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS" />
+  </node>
+
+  <!-- 6. 启动 rviz -->
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find sim_env)/rviz/sim_env.rviz" />
+</launch>

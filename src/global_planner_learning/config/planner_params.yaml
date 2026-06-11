@@ -1,0 +1,28 @@
+# 全局路径规划器参数
+# 适用于 nav_core::BaseGlobalPlanner 接口的规划器
+
+GlobalPlanner:  # 对应 ROS 官方 global_planner 包
+  use_dijkstra: false              # true=Dijkstra, false=A*
+  use_quadratic: true              # 使用二次函数近似
+  use_grid_path: false             # 使用网格路径（沿栅格边界）
+  old_navfn_behavior: false        # 兼容 navfn 行为
+
+  # A* 的启发函数权重
+  neutral_cost: 50                 # 中性代价
+  cost_factor: 3.0                 # 代价因子
+  lethal_cost: 253                 # 致命障碍物代价值
+
+  # 路径优化
+  publish_potential: true          # 发布势场图（可视化用）
+  orientation_mode: 0              # 路径方向模式
+  orientation_window_size: 1       # 方向平滑窗口
+
+NavfnROS:  # 对应 navfn 包（Dijkstra）
+  allow_unknown: true              # 允许穿过未知区域
+  default_tolerance: 0.25          # 目标点容差（米）
+
+# 自定义规划器参数示例（后续学习使用）
+# custom_planner:
+#   use_astar: true
+#   heuristic_weight: 1.5
+#   max_iterations: 10000

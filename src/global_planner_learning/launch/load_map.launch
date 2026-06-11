@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- ===================================================== -->
+  <!-- 地图加载示例：加载 warehouse 地图，用于全局路径规划   -->
+  <!-- ===================================================== -->
+
+  <!-- 地图参数：可在此处指定要加载的地图 -->
+  <arg name="map_name" default="warehouse" />
+  <arg name="map_dir"  default="$(find sim_env)/maps/$(arg map_name)" />
+
+  <!-- 1. 启动 map_server 加载地图 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(arg map_dir)/$(arg map_name).yaml">
+    <param name="frame_id" value="map" />
+  </node>
+
+  <!-- 2. 启动静态 TF：map -> odom（仅用于测试，实际使用时应由 amcl 提供） -->
+  <node pkg="tf2_ros" type="static_transform_publisher"
+        name="map_odom_broadcaster"
+        args="0 0 0 0 0 0 map odom" />
+
+  <!-- 3. 启动 rviz（查看地图） -->
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find global_planner_learning)/config/map_view.rviz"
+        unless="$(eval arg('map_name') == '')" />
+</launch>

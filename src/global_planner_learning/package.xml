@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>global_planner_learning</name>
+  <version>0.0.1</version>
+  <description>学习ROS全局路径规划（Global Path Planning）的教程功能包</description>
+
+  <maintainer email="youremail@example.com">learner</maintainer>
+
+  <license>GPL3</license>
+
+  <url type="website">http://wiki.ros.org/navigation</url>
+
+  <author email="youremail@example.com">learner</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- ==================== 核心依赖 ==================== -->
+  <depend>roscpp</depend>
+  <depend>nav_msgs</depend>         <!-- 导航消息（Odometry, Path, OccupancyGrid等） -->
+  <depend>geometry_msgs</depend>    <!-- 几何消息（PoseStamped, Point等） -->
+  <depend>visualization_msgs</depend> <!-- 可视化（Marker, MarkerArray） -->
+
+  <!-- ==================== 工具依赖 ==================== -->
+  <depend>tf2_ros</depend>          <!-- 坐标变换 -->
+  <depend>tf2_geometry_msgs</depend>
+
+  <export>
+    <!-- 本包不注册为 nav_core 插件，独立运行 -->
+  </export>
+</package>

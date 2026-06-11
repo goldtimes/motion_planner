@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!--
+  ============================================================
+  launch/global_planner_demo.launch
+  独立全局路径规划演示 —— 不依赖 move_base
+
+  使用方法：
+    roslaunch global_planner_learning global_planner_demo.launch
+
+  然后在 RViz 中：
+    1. 用 "2D Pose Estimate" 设置起点（或自动从 TF 获取）
+    2. 用 "2D Nav Goal"    设置终点
+    3. 观察规划出的全局路径
+  ============================================================
+-->
+<launch>
+  <!-- ==================== 参数 ==================== -->
+  <arg name="map_name"    default="warehouse" />
+  <arg name="map_dir"     default="$(find sim_env)/maps/$(arg map_name)" />
+  <arg name="use_tf_start" default="false"
+        doc="true=从 TF (map→base_footprint) 获取起点; false=从 RViz 2D Pose Estimate 获取" />
+
+  <!-- ==================== 1. 加载地图 ==================== -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(arg map_dir)/$(arg map_name).yaml" output="screen">
+    <param name="frame_id" value="map" />
+  </node>
+
+  <!-- ==================== 2. 启动全局规划器节点 ==================== -->
+  <node name="global_planner_node" pkg="global_planner_learning"
+        type="global_planner_learning_node" output="screen">
+    <param name="map_frame"          value="map" />
+    <param name="allow_unknown"      value="false" />
+    <param name="use_8_connectivity" value="true" />
+    <param name="use_tf_for_start"   value="$(arg use_tf_start)" />
+  </node>
+
+  <!-- ==================== 3. RViz 可视化 ==================== -->
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find global_planner_learning)/config/global_planner.rviz"
+        output="screen" />
+
+</launch>

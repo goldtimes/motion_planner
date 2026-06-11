@@ -1,0 +1,30 @@
+# 全局代价地图参数（用于全局路径规划）
+# 参考：src/sim_env/config/costmap/global_costmap_params.yaml
+global_costmap:
+  global_frame: map                # 全局代价地图使用 map 坐标系
+  robot_base_frame: base_footprint # 机器人基座坐标系
+  update_frequency: 1.0            # 地图更新频率（Hz）
+  publish_frequency: 1.0           # 地图发布频率（Hz）
+  transform_tolerance: 0.5         # TF 变换容忍延迟（秒）
+  resolution: 0.05                 # 地图分辨率（米/像素）
+
+  # 膨胀参数
+  inflation_radius: 0.8            # 障碍物膨胀半径（米）
+  cost_scaling_factor: 2.0         # 代价衰减因子
+
+  # 静态地图（由 map_server 加载）
+  static_map: true                 # 使用静态地图
+  rolling_window: false            # 非滚动窗口
+
+  # 传感器观测源
+  obstacle_layer:
+    observation_sources: scan
+    scan:
+      topic: /scan
+      sensor_frame: base_footprint
+      data_type: LaserScan
+      clearing: true
+      marking: true
+      obstacle_range: 2.5
+      raytrace_range: 3.0
+      inf_is_valid: true
