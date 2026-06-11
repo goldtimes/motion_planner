@@ -5,6 +5,8 @@
  * @version 0.1
  */
 
+#include <std_msgs/String.h>
+
 #include "global_planner_learning/global_planner_node.h"
 
 namespace global_planner_learning {
@@ -12,9 +14,10 @@ namespace global_planner_learning {
 // ==================== 构造函数 ====================
 GlobalPlannerNode::GlobalPlannerNode()
     : private_nh_("~"), tf_listener_(tf_buffer_), has_start_(false),
-      has_goal_(false), map_ready_(false) {
+      has_goal_(false), map_ready_(false), planner_(nullptr) {
   // ---- 读取参数 ----
   private_nh_.param("map_frame", map_frame_, std::string("map"));
+  private_nh_.param("planner_name", planner_name_, std::string("AStar"));
   private_nh_.param("allow_unknown", allow_unknown_, false);
   private_nh_.param("use_8_connectivity", use_8_connectivity_, true);
   // 如果为 true，则从 TF (map→base_footprint) 获取起点，否则从 /initialpose
@@ -41,7 +44,16 @@ GlobalPlannerNode::GlobalPlannerNode()
   visited_pub_ =
       nh_.advertise<nav_msgs::OccupancyGrid>("/visited_nodes", 1, true);
 
+  // 规划统计信息（字符串，便于 rviz 或命令行查看）
+  stats_pub_ = nh_.advertise<std_msgs::String>("/plan_stats", 1, true);
+
   ROS_INFO("[GlobalPlanner] 节点已启动，等待地图...");
+}
+
+// ==================== 析构函数 ====================
+GlobalPlannerNode::~GlobalPlannerNode() {
+  delete planner_;
+  planner_ = nullptr;
 }
 
 // ==================== 主循环 ====================
@@ -86,6 +98,18 @@ void GlobalPlannerNode::mapCallback(
     map_ready_ = true;
     ROS_INFO("[GlobalPlanner] map loaded: %d x %d, resolution %.3f m/px",
              msg->info.width, msg->info.height, msg->info.resolution);
+
+    // ---- 地图就绪后创建规划器 ----
+    // 通过基类指针指向具体算法实现，后续可扩展为根据 planner_name_ 参数切换
+    delete planner_;
+    if (planner_name_ == "AStar") {
+      planner_ = new AStarPlanner(map_, allow_unknown_, use_8_connectivity_);
+      ROS_INFO("[GlobalPlanner] planner created: %s", planner_name_.c_str());
+    } else {
+      ROS_WARN("[GlobalPlanner] unknown planner '%s', fallback to AStar",
+               planner_name_.c_str());
+      planner_ = new AStarPlanner(map_, allow_unknown_, use_8_connectivity_);
+    }
   }
 }
 
@@ -131,31 +155,33 @@ bool GlobalPlannerNode::getRobotPoseFromTF(geometry_msgs::PoseStamped &pose) {
 
 // ==================== 执行规划 ====================
 void GlobalPlannerNode::doPlan() {
-  if (!map_ready_ || !has_start_ || !has_goal_)
+  if (!map_ready_ || !has_start_ || !has_goal_ || !planner_)
     return;
 
   ROS_INFO("[GlobalPlanner] planning... from (%.2f, %.2f) to (%.2f, %.2f)",
            start_pose_.pose.position.x, start_pose_.pose.position.y,
            goal_pose_.pose.position.x, goal_pose_.pose.position.y);
 
-  // 创建 A* 规划器
-  AStarPlanner astar(map_, allow_unknown_, use_8_connectivity_);
-
-  // 执行规划
+  // 通过基类指针调用规划器（多态）
   std::vector<geometry_msgs::PoseStamped> plan;
-  bool success = astar.makePlan(start_pose_, goal_pose_, plan);
+  bool success = planner_->makePlan(start_pose_, goal_pose_, plan);
 
-  if (success) {
-    ROS_INFO("[GlobalPlanner] plan success! path points: %zu", plan.size());
-    publishPlan(plan);
-  } else {
-    ROS_WARN("[GlobalPlanner] plan failed!");
-    // 发布空路径
-    publishPlan(plan);
-  }
+  // 获取统计信息
+  PlannerStatistics stats = planner_->getStatistics();
+
+  // 发布路径
+  publishPlan(plan);
 
   // 发布搜索过程可视化
-  publishVisitedNodes(astar.getVisitedNodes());
+  publishVisitedNodes(planner_->getVisitedNodes());
+
+  // 发布统计信息（String 话题）
+  std_msgs::String stats_msg;
+  stats_msg.data = stats.toString();
+  stats_pub_.publish(stats_msg);
+
+  // 终端输出统计
+  ROS_INFO("[GlobalPlanner] %s", stats.toString().c_str());
 }
 
 // ==================== 发布路径 ====================

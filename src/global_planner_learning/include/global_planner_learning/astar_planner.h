@@ -1,11 +1,11 @@
 /**
  * @file astar_planner.h
- * @brief A* 路径规划核心算法（基于栅格地图）
+ * @brief A* 路径规划算法（基于栅格地图）
  * @author learner
  * @version 0.1
  *
- * 一个从零实现的 A* 路径规划算法，不依赖 move_base / nav_core，
- * 直接工作在 nav_msgs::OccupancyGrid 地图上。
+ * 继承 PathPlannerBase 基类的 A* 实现。
+ * 支持 4/8 连通、允许/禁止未知区域穿越。
  */
 
 #pragma once
@@ -18,24 +18,9 @@
 #include <queue>
 #include <vector>
 
+#include "global_planner_learning/planner_base.h"
+
 namespace global_planner_learning {
-
-/**
- * @brief 栅格节点（用于 A* 搜索）
- */
-struct Node {
-  int x, y;               // 栅格坐标 (列, 行)
-  double g;               // 从起点到当前点的实际代价值
-  double h;               // 当前点到目标点的启发式估计值
-  double f;               // f = g + h
-  int parent_x, parent_y; // 父节点坐标
-
-  Node() : x(0), y(0), g(0), h(0), f(0), parent_x(-1), parent_y(-1) {}
-  Node(int x_, int y_)
-      : x(x_), y(y_), g(0), h(0), f(0), parent_x(-1), parent_y(-1) {}
-
-  bool operator>(const Node &other) const { return f > other.f; }
-};
 
 /**
  * @brief A* 路径规划器
@@ -43,7 +28,7 @@ struct Node {
  * 在 nav_msgs::OccupancyGrid 地图上执行 A* 搜索。
  * 支持 4 连通和 8 连通邻域搜索。
  */
-class AStarPlanner {
+class AStarPlanner : public PathPlannerBase {
 public:
   /**
    * @brief 构造函数
@@ -54,21 +39,19 @@ public:
   AStarPlanner(const nav_msgs::OccupancyGrid::ConstPtr &map,
                bool allow_unknown = false, bool use_8_connectivity = true);
 
-  /**
-   * @brief 执行 A* 路径搜索
-   * @param start_world  起点（世界坐标）
-   * @param goal_world   终点（世界坐标）
-   * @param plan         输出的路径点列表（世界坐标）
-   * @return true 规划成功, false 规划失败
-   */
+  // ==================== 基类接口覆盖 ====================
+
   bool makePlan(const geometry_msgs::PoseStamped &start_world,
                 const geometry_msgs::PoseStamped &goal_world,
-                std::vector<geometry_msgs::PoseStamped> &plan);
+                std::vector<geometry_msgs::PoseStamped> &plan) override;
 
-  /**
-   * @brief 获取搜索过程中访问过的节点（用于可视化）
-   */
-  const std::vector<Node> &getVisitedNodes() const { return visited_nodes_; }
+  PlannerStatistics getStatistics() const override { return stats_; }
+
+  std::string getName() const override { return "AStar"; }
+
+  const std::vector<Node> &getVisitedNodes() const override {
+    return visited_nodes_;
+  }
 
 private:
   /**
@@ -107,7 +90,19 @@ private:
   double resolution_;          // 地图分辨率（米/像素）
   double origin_x_, origin_y_; // 地图原点（世界坐标）
 
+  PlannerStatistics stats_; // 规划统计（每次 makePlan 后更新）
+
   std::vector<Node> visited_nodes_; // 搜索过程中访问的节点（可视化用）
+
+  // 父节点追踪数组：parent_[y*width+x] = {parent_x, parent_y}
+  // 在 A* 搜索过程中记录每个栅格首次从 open_set 弹出时的最优父节点
+  std::vector<std::pair<int, int>> parent_;
+
+  /**
+   * @brief 计算路径总长度（辅助统计用）
+   */
+  double
+  computePathLength(const std::vector<geometry_msgs::PoseStamped> &plan) const;
 
   // 邻域偏移量
   static constexpr int DX4_[4] = {1, -1, 0, 0};

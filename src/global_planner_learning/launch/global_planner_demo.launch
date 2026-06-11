@@ -30,6 +30,7 @@
   <node name="global_planner_node" pkg="global_planner_learning"
         type="global_planner_learning_node" output="screen">
     <param name="map_frame"          value="map" />
+    <param name="planner_name"       value="AStar" />
     <param name="allow_unknown"      value="false" />
     <param name="use_8_connectivity" value="true" />
     <param name="use_tf_for_start"   value="$(arg use_tf_start)" />

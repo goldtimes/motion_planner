@@ -24,13 +24,14 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include "global_planner_learning/astar_planner.h"
+#include "global_planner_learning/planner_base.h"
 
 namespace global_planner_learning {
 
 class GlobalPlannerNode {
 public:
   GlobalPlannerNode();
-  ~GlobalPlannerNode() = default;
+  ~GlobalPlannerNode();
 
   /**
    * @brief 主循环（处理等待地图加载等）
@@ -87,6 +88,7 @@ private:
   // 发布
   ros::Publisher plan_pub_;
   ros::Publisher visited_pub_;
+  ros::Publisher stats_pub_; // 规划统计信息（std_msgs/String）
 
   // TF 监听
   tf2_ros::Buffer tf_buffer_;
@@ -100,10 +102,14 @@ private:
   bool has_goal_;
   bool map_ready_;
 
+  // 规划器（基类指针，支持多态切换）
+  PathPlannerBase *planner_;
+
   // 参数
-  std::string map_frame_;   // 地图坐标系
-  bool allow_unknown_;      // 是否允许穿越未知区域
-  bool use_8_connectivity_; // 是否使用 8 连通
+  std::string map_frame_;    // 地图坐标系
+  std::string planner_name_; // 使用的规划器名称
+  bool allow_unknown_;       // 是否允许穿越未知区域
+  bool use_8_connectivity_;  // 是否使用 8 连通
   bool use_tf_for_start_; // 是否从 TF 获取起点（替代 RViz 2D Pose）
 };
 

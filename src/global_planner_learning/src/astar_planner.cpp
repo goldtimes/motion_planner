@@ -74,52 +74,51 @@ double AStarPlanner::getHeuristic(int gx, int gy, int goal_x,
   }
 }
 
+// ==================== 路径长度计算 ====================
+double AStarPlanner::computePathLength(
+    const std::vector<geometry_msgs::PoseStamped> &plan) const {
+  double length = 0.0;
+  for (size_t i = 1; i < plan.size(); ++i) {
+    double dx = plan[i].pose.position.x - plan[i - 1].pose.position.x;
+    double dy = plan[i].pose.position.y - plan[i - 1].pose.position.y;
+    length += std::sqrt(dx * dx + dy * dy);
+  }
+  return length;
+}
+
 // ==================== 路径回溯 ====================
 void AStarPlanner::reconstructPath(
     int goal_x, int goal_y, std::vector<geometry_msgs::PoseStamped> &plan) {
-  // 用一个 map 存储父节点关系（路径回溯）
-  // 为了提高效率，我们使用一个二维数组来记录每个节点的父节点
-  // 但由于地图可能很大，这里我们在 visited_nodes_ 中查找
-  // 更高效的方式是在搜索时维护一个 parent 数组，但为了清晰起见此处在 visited
-  // 中回溯
   ROS_INFO("[A*] reconstruct path from goal: (%d, %d)", goal_x, goal_y);
-  // 从目标点开始回溯
   std::vector<geometry_msgs::PoseStamped> path_nodes;
+
   int cx = goal_x, cy = goal_y;
+  int iter = 0;
+  const int max_iter = width_ * height_; // 安全上限
 
-  // 先通过 visited_nodes_ 重建路径
-  // 实际更好的做法是在 A* 搜索时维护 parent 矩阵
-  // 但为了代码简洁，这里我们重新搜索 parent 关系
-  // 使用一个临时地图来存储 parent
-  std::vector<std::pair<int, int>> parent_map(width_ * height_, {-1, -1});
-
-  // 从 visited_nodes_ 中提取 parent 关系
-  for (const auto &node : visited_nodes_) {
-    int idx = node.y * width_ + node.x;
-    parent_map[idx] = {node.parent_x, node.parent_y};
-  }
-
-  // 回溯
-  while (cx >= 0 && cy >= 0) {
+  // 沿着 parent_ 数组从目标回溯到起点（起点 parent 为 {-1, -1}）
+  while (cx >= 0 && cy >= 0 && iter < max_iter) {
     geometry_msgs::PoseStamped pose;
     pose.header.frame_id = map_->header.frame_id;
     pose.header.stamp = ros::Time(0);
     gridToWorld(cx, cy, pose.pose.position.x, pose.pose.position.y);
     pose.pose.position.z = 0.0;
     pose.pose.orientation.w = 1.0;
-
     path_nodes.push_back(pose);
 
     int idx = cy * width_ + cx;
-    auto &parent = parent_map[idx];
-    if (parent.first < 0 || parent.second < 0)
-      break;
-    cx = parent.first;
-    cy = parent.second;
+    const auto &p = parent_[idx];
+    if (p.first < 0 || p.second < 0)
+      break; // 到达起点
+    cx = p.first;
+    cy = p.second;
+    ++iter;
+  }
 
-    // 防止死循环（起点自己指向自己）
-    if (cx == goal_x && cy == goal_y)
-      break;
+  if (iter >= max_iter) {
+    ROS_ERROR("[A*] reconstructPath: exceeded max iterations, possible cycle!");
+    plan.clear();
+    return;
   }
 
   // 反转路径（从起点到终点）
@@ -131,8 +130,13 @@ void AStarPlanner::reconstructPath(
 bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
                             const geometry_msgs::PoseStamped &goal_world,
                             std::vector<geometry_msgs::PoseStamped> &plan) {
+  // ---- 计时开始 ----
+  ros::Time start_time = ros::Time::now();
+
   plan.clear();
   visited_nodes_.clear();
+  stats_ = PlannerStatistics(); // 重置统计
+  stats_.planner_name = getName();
 
   // 1. 世界坐标 → 栅格坐标
   int start_gx, start_gy, goal_gx, goal_gy;
@@ -158,20 +162,30 @@ bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
   }
 
   // 3. 初始化 A* 搜索
-  // 使用二维数组标记是否已访问 (closed set)
+  // closed set：标记已确定最优路径的节点
   std::vector<bool> closed_set(width_ * height_, false);
+
+  // g_value：记录从起点到每个栅格的最佳代价值，用于跳过更差的路径
+  std::vector<double> g_value(width_ * height_,
+                              std::numeric_limits<double>::max());
+
+  // parent_：记录每个栅格在最优路径上的父节点
+  parent_.assign(width_ * height_, {-1, -1});
 
   // 优先队列 (open set)，最小堆
   std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open_set;
 
   // 起点
   Node start_node(start_gx, start_gy);
+  start_node.g = 0.0;
   start_node.h = getHeuristic(start_gx, start_gy, goal_gx, goal_gy);
   start_node.f = start_node.g + start_node.h;
-  start_node.parent_x = start_gx;
-  start_node.parent_y = start_gy;
+  start_node.parent_x = -1; // 起点父节点设为 -1，作为回溯终止标记
+  start_node.parent_y = -1;
+
   open_set.push(start_node);
   visited_nodes_.push_back(start_node);
+  g_value[start_gy * width_ + start_gx] = 0.0;
 
   // 选择邻域偏移
   const int *dx = use_8_connectivity_ ? DX8_ : DX4_;
@@ -184,19 +198,29 @@ bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
     Node current = open_set.top();
     open_set.pop();
 
-    // 如果已经在 closed set 中，跳过
     int idx = current.y * width_ + current.x;
+
+    // 如果已经在 closed set 中，跳过（该节点已有最优路径）
     if (closed_set[idx])
       continue;
 
-    // 标记为已访问
+    // 标记为已访问，并记录父节点（这是首次弹出，路径最优）
     closed_set[idx] = true;
+    parent_[idx] = {current.parent_x, current.parent_y};
 
-    // 到达目标点（允许一定容差，精确到栅格即可）
+    // 到达目标点（精确到栅格即可）
     if (current.x == goal_gx && current.y == goal_gy) {
       reconstructPath(goal_gx, goal_gy, plan);
-      ROS_INFO("[A*] plan success! visited nodes: %zu", visited_nodes_.size());
 
+      // ---- 统计：成功 ----
+      ros::Time end_time = ros::Time::now();
+      stats_.success = true;
+      stats_.planning_time_ms = (end_time - start_time).toSec() * 1000.0;
+      stats_.visited_nodes_count = visited_nodes_.size();
+      stats_.path_points_count = plan.size();
+      stats_.path_length_m = computePathLength(plan);
+
+      stats_.log();
       return true;
     }
 
@@ -205,7 +229,6 @@ bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
       int nx = current.x + dx[i];
       int ny = current.y + dy[i];
 
-      // 检查边界和可通行性
       if (!isWalkable(nx, ny))
         continue;
 
@@ -215,9 +238,17 @@ bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
 
       // 计算移动代价（直线移动 1.0，对角移动 sqrt(2)）
       double step_cost = (dx[i] != 0 && dy[i] != 0) ? 1.414 : 1.0;
+      double new_g = current.g + step_cost;
+
+      // 如果已经找到一条更短的路径到该节点，跳过
+      if (new_g >= g_value[nidx])
+        continue;
+
+      // 更新最优代价值
+      g_value[nidx] = new_g;
 
       Node neighbor(nx, ny);
-      neighbor.g = current.g + step_cost;
+      neighbor.g = new_g;
       neighbor.h = getHeuristic(nx, ny, goal_gx, goal_gy);
       neighbor.f = neighbor.g + neighbor.h;
       neighbor.parent_x = current.x;
@@ -228,7 +259,15 @@ bool AStarPlanner::makePlan(const geometry_msgs::PoseStamped &start_world,
     }
   }
 
-  ROS_WARN("[A*] plan failed! no feasible path found.");
+  // ---- 统计：失败 ----
+  ros::Time end_time = ros::Time::now();
+  stats_.success = false;
+  stats_.planning_time_ms = (end_time - start_time).toSec() * 1000.0;
+  stats_.visited_nodes_count = visited_nodes_.size();
+  stats_.path_points_count = 0;
+  stats_.path_length_m = 0.0;
+
+  stats_.log();
   return false;
 }
 
