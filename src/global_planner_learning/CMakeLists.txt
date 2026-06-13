@@ -39,6 +39,7 @@ include_directories(
 add_executable(${PROJECT_NAME}_node
   src/global_planner_node.cpp
   src/astar_planner.cpp
+  src/dijkstra_planner.cpp
 )
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}

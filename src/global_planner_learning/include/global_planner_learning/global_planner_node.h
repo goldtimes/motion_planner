@@ -24,6 +24,7 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include "global_planner_learning/astar_planner.h"
+#include "global_planner_learning/dijkstra_planner.h"
 #include "global_planner_learning/planner_base.h"
 
 namespace global_planner_learning {

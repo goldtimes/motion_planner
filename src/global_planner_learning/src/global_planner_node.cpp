@@ -105,6 +105,9 @@ void GlobalPlannerNode::mapCallback(
     if (planner_name_ == "AStar") {
       planner_ = new AStarPlanner(map_, allow_unknown_, use_8_connectivity_);
       ROS_INFO("[GlobalPlanner] planner created: %s", planner_name_.c_str());
+    } else if (planner_name_ == "Dijkstra") {
+      planner_ = new DijkstraPlanner(map_, allow_unknown_, use_8_connectivity_);
+      ROS_INFO("[GlobalPlanner] planner created: %s", planner_name_.c_str());
     } else {
       ROS_WARN("[GlobalPlanner] unknown planner '%s', fallback to AStar",
                planner_name_.c_str());
