@@ -24,4 +24,10 @@
         // 忽略无关警告（可选，减少干扰）
         "--clang-tidy-checks=-*,llvm-*,clang-analyzer-*,modernize-*"
     ],
+    "extensionsGallery": {
+        "serviceUrl": "https://vscode.cdn.azure.cn/extensions/marketplace.json",
+        "cacheUrl": "https://vscode.cdn.azure.cn/extensions/cache",
+        "controlUrl": "https://vscode.cdn.azure.cn/extensions/control",
+        "recommendationsUrl": "https://vscode.cdn.azure.cn/extensions/recommendations"
+    }
 }

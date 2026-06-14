@@ -41,4 +41,4 @@ cd ../3rd
 conan install . --output-folder=build --build=missing -s compiler.libcxx=libstdc++11
 process_3rd_library "gflags" "glog" "ceres-solver" "osqp" "libunwind"
 cd ../
-catkin_make install
+catkin_make -DCMAKE_EXPORT_COMPILE_COMMANDS=ON install 

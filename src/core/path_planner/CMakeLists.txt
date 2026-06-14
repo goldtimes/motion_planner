@@ -25,6 +25,7 @@ catkin_package(
 
 include_directories(
   include
+  common
   ${catkin_INCLUDE_DIRS}
 )
 
