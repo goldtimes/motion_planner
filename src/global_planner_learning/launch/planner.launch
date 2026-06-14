@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!--
+  ============================================================
+  launch/planner.launch
+  全局路径规划节点启动文件 —— 支持 A* / Dijkstra / RRT 切换
+
+  用法：
+    # 默认使用 A* 算法
+    roslaunch global_planner_learning planner.launch
+
+    # 使用 Dijkstra 算法
+    roslaunch global_planner_learning planner.launch planner_name:=Dijkstra
+
+    # 使用 RRT 算法（带自定义参数）
+    roslaunch global_planner_learning planner.launch \
+      planner_name:=RRT rrt_step_size:=1.0 rrt_max_iter:=10000
+
+  在 RViz 中操作：
+    1. 用 "2D Pose Estimate" 设置起点（或通过 TF 自动获取）
+    2. 用 "2D Nav Goal" 设置终点
+    3. 观察规划出的全局路径和搜索过程
+  ============================================================
+-->
+<launch>
+  <!-- ==================== 通用参数 ==================== -->
+  <arg name="map_name"         default="warehouse" />
+  <arg name="map_dir"          default="$(find sim_env)/maps/$(arg map_name)" />
+
+  <!-- 规划器选择：AStar / Dijkstra / RRT -->
+  <arg name="planner_name"     default="AStar" />
+
+  <!-- 是否允许穿越未知区域（地图中值 = -1 的栅格） -->
+  <arg name="allow_unknown"    default="false" />
+
+  <!-- 是否使用 8 连通搜索（仅 A* / Dijkstra 有效，RRT 无此概念） -->
+  <arg name="use_8_connectivity" default="true" />
+
+  <!-- 起点获取方式：true=从 TF (map→base_footprint) 获取，false=从 RViz 2D Pose Estimate 获取 -->
+  <arg name="use_tf_for_start" default="false" />
+
+  <!-- ==================== RRT 专属参数 ==================== -->
+  <!-- 目标偏置概率 [0,1]，值越大树越倾向朝目标生长 -->
+  <arg name="rrt_goal_bias"    default="0.1" />
+  <!-- 扩展步长（米），值越大单次扩展越远 -->
+  <arg name="rrt_step_size"    default="0.5" />
+  <!-- 最大迭代次数 -->
+  <arg name="rrt_max_iter"     default="5000" />
+
+  <!-- ==================== 1. 加载地图 ==================== -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(arg map_dir)/$(arg map_name).yaml" output="screen">
+    <param name="frame_id" value="map" />
+  </node>
+
+  <!-- ==================== 2. 启动全局规划器节点 ==================== -->
+  <node name="global_planner_node" pkg="global_planner_learning"
+        type="global_planner_learning_node" output="screen">
+
+    <!-- 通用参数 -->
+    <param name="map_frame"          value="map" />
+    <param name="planner_name"       value="$(arg planner_name)" />
+    <param name="allow_unknown"      value="$(arg allow_unknown)" />
+    <param name="use_8_connectivity" value="$(arg use_8_connectivity)" />
+    <param name="use_tf_for_start"   value="$(arg use_tf_for_start)" />
+
+    <!-- RRT 专属参数（A* / Dijkstra 会忽略未知参数） -->
+    <param name="rrt_goal_bias"      value="$(arg rrt_goal_bias)" />
+    <param name="rrt_step_size"      value="$(arg rrt_step_size)" />
+    <param name="rrt_max_iter"       value="$(arg rrt_max_iter)" />
+  </node>
+
+  <!-- ==================== 3. RViz 可视化 ==================== -->
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find global_planner_learning)/config/global_planner.rviz"
+        output="screen" />
+
+</launch>

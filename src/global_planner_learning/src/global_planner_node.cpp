@@ -108,6 +108,19 @@ void GlobalPlannerNode::mapCallback(
     } else if (planner_name_ == "Dijkstra") {
       planner_ = new DijkstraPlanner(map_, allow_unknown_, use_8_connectivity_);
       ROS_INFO("[GlobalPlanner] planner created: %s", planner_name_.c_str());
+    } else if (planner_name_ == "RRT") {
+      // RRT 使用额外的参数：goal_bias, step_size, max_iter
+      double goal_bias = 0.1;
+      double step_size = 0.5;
+      int max_iter = 5000;
+      private_nh_.param("rrt_goal_bias", goal_bias, 0.1);
+      private_nh_.param("rrt_step_size", step_size, 0.5);
+      private_nh_.param("rrt_max_iter", max_iter, 5000);
+      planner_ = new RRTPlanner(map_, allow_unknown_, goal_bias, step_size,
+                                max_iter);
+      ROS_INFO("[GlobalPlanner] planner created: %s (bias=%.2f, step=%.2f, "
+               "max_iter=%d)",
+               planner_name_.c_str(), goal_bias, step_size, max_iter);
     } else {
       ROS_WARN("[GlobalPlanner] unknown planner '%s', fallback to AStar",
                planner_name_.c_str());
