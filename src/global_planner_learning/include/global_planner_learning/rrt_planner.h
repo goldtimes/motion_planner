@@ -22,10 +22,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <geometry_msgs/PoseStamped.h>
 #include <limits>
 #include <nav_msgs/OccupancyGrid.h>
-#include <cstdlib>
 #include <vector>
 
 #include "global_planner_learning/planner_base.h"
@@ -40,10 +40,10 @@ namespace global_planner_learning {
  * 仅在碰撞检测和可视化时转换为栅格坐标。
  */
 struct RRTNode {
-  double x, y;        // 世界坐标（米）
-  int gx, gy;         // 对应的栅格坐标
-  int parent_idx;     // 父节点在 nodes_ 向量中的索引（-1 表示根节点）
-  double cost;        // 从起点到该节点的路径代价
+  double x, y;    // 世界坐标（米）
+  int gx, gy;     // 对应的栅格坐标
+  int parent_idx; // 父节点在 nodes_ 向量中的索引（-1 表示根节点）
+  double cost;    // 从起点到该节点的路径代价
 
   RRTNode() : x(0), y(0), gx(0), gy(0), parent_idx(-1), cost(0.0) {}
   RRTNode(double wx, double wy, int gxi, int gyi)
@@ -179,9 +179,9 @@ private:
   double origin_x_, origin_y_; // 地图原点（世界坐标）
 
   // RRT 参数
-  double goal_bias_;   // 目标偏置概率 [0, 1]
-  double step_size_;   // 扩展步长（米）
-  int max_iter_;       // 最大迭代次数
+  double goal_bias_;      // 目标偏置概率 [0, 1]
+  double step_size_;      // 扩展步长（米）
+  int max_iter_;          // 最大迭代次数
   double goal_tolerance_; // 到达目标点的判定阈值（米）
 
   PlannerStatistics stats_; // 规划统计

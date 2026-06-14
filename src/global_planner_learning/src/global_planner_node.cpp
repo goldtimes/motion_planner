@@ -116,8 +116,8 @@ void GlobalPlannerNode::mapCallback(
       private_nh_.param("rrt_goal_bias", goal_bias, 0.1);
       private_nh_.param("rrt_step_size", step_size, 0.5);
       private_nh_.param("rrt_max_iter", max_iter, 5000);
-      planner_ = new RRTPlanner(map_, allow_unknown_, goal_bias, step_size,
-                                max_iter);
+      planner_ =
+          new RRTPlanner(map_, allow_unknown_, goal_bias, step_size, max_iter);
       ROS_INFO("[GlobalPlanner] planner created: %s (bias=%.2f, step=%.2f, "
                "max_iter=%d)",
                planner_name_.c_str(), goal_bias, step_size, max_iter);
