@@ -19,6 +19,7 @@
 
 namespace rmp::path_planner {
 class PathPlanner {
+public:
   PathPlanner(costmap_2d::Costmap2DROS *costmap);
 
   virtual ~PathPlanner() = default;
@@ -103,6 +104,24 @@ class PathPlanner {
   static bool resample(const common::geometry::Points3d &path,
                        common::geometry::Points3d *path_resample,
                        double sample_ratio);
+
+  template <typename Node>
+  std::vector<Node>
+  _convertClosedListToPath(std::unordered_map<int, Node> &closed_list,
+                           const Node &start, const Node &goal) {
+    std::vector<Node> path;
+    auto current = closed_list.find(goal.id());
+    while (current->second != start) {
+      path.emplace_back(current->second.x(), current->second.y());
+      auto it = closed_list.find(current->second.pid());
+      if (it != closed_list.end())
+        current = it;
+      else
+        return {};
+    }
+    path.push_back(start);
+    return path;
+  }
 
 protected:
   costmap_2d::Costmap2DROS *costmap_ros_; // costmap ROS wrapper
