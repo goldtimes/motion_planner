@@ -28,7 +28,7 @@ AStarPathPlanner::~AStarPathPlanner() {}
     A*算法的流程了
     1. 检查下标是否合法
 */
-bool AStarPathPlanner::path(const common::geometry::Point3d &start,
+bool AStarPathPlanner::plan(const common::geometry::Point3d &start,
                             const common::geometry::Point3d &end,
                             common::geometry::Points3d *path,
                             common::geometry::Points3d *expand) {
@@ -118,3 +118,7 @@ bool AStarPathPlanner::path(const common::geometry::Point3d &start,
   }
   return false;
 }
+
+
+
+// 

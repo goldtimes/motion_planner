@@ -69,9 +69,9 @@ list(PREPEND CMAKE_INCLUDE_PATH "/root/.conan/data/osqp/0.6.3/_/_/package/2af715
 
 
 if (DEFINED ENV{PKG_CONFIG_PATH})
-set(ENV{PKG_CONFIG_PATH} "/motion_ws/3rd/build/build/Release/generators:$ENV{PKG_CONFIG_PATH}")
+set(ENV{PKG_CONFIG_PATH} "/root/catkin_ws/motion_planner/3rd/build/build/Release/generators:$ENV{PKG_CONFIG_PATH}")
 else()
-set(ENV{PKG_CONFIG_PATH} "/motion_ws/3rd/build/build/Release/generators:")
+set(ENV{PKG_CONFIG_PATH} "/root/catkin_ws/motion_planner/3rd/build/build/Release/generators:")
 endif()
 
 

@@ -1,8 +1,23 @@
-#pragma once
+/***********************************************************
+ *
+ * @file: point.h
+ * @breif: point template class
+ * @author: Yang Haodong
+ * @update: 2024-9-20
+ * @version: 1.0
+ *
+ * Copyright (c) 2023, Yang Haodong
+ * All rights reserved.
+ * --------------------------------------------------------
+ *
+ **********************************************************/
+#ifndef RMP_COMMON_GEOMETRY_POINT_H_
+#define RMP_COMMON_GEOMETRY_POINT_H_
+
 #include <cmath>
 #include <vector>
 
-#include "util/log.h"
+#include "common/util/log.h"
 
 namespace rmp::common::geometry
 {
@@ -132,3 +147,5 @@ using Points3f = std::vector<Point3f>;
 using Points3d = std::vector<Point3d>;
 
 }  // namespace rmp
+
+#endif

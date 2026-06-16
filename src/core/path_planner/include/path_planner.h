@@ -8,7 +8,7 @@
  * 定义了路径规划器的基本接口，包括规划路径和初始化。
  */
 #include "collision_checker.h"
-#include "geometry/point.h"
+#include "common/geometry/point.h"
 #include "node.h"
 #include <costmap_2d/costmap_2d.h>
 #include <costmap_2d/costmap_2d_ros.h>
@@ -31,7 +31,7 @@ public:
    * @param expand         containing the node been search during the process
    * @return true if path found, else false
    */
-  virtual bool path(const common::geometry::Point3d &start,
+  virtual bool plan(const common::geometry::Point3d &start,
                     const common::geometry::Point3d &end,
                     common::geometry::Points3d *path,
                     common::geometry::Points3d *expand) = 0;

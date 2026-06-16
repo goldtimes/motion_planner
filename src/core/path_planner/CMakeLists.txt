@@ -30,8 +30,11 @@ include_directories(
 )
 
 file(GLOB path_planner_src_files src/*.cpp)
+# 打印path_planner_src_files
+message("path_planner_src_files: ${path_planner_src_files}")
+
 # file(GLOB path_planner_utils_src_files src/utils/*.cpp)
-# file(GLOB graph_path_planner_src_files src/graph_planner/*.cpp)
+file(GLOB graph_path_planner_src_files src/graph_planner/*.cpp)
 # file(GLOB sample_path_planner_src_files src/sample_planner/*.cpp)
 # file(GLOB evolutionary_path_planner_src_files src/evolutionary_planner/*.cpp)
 
@@ -40,9 +43,9 @@ file(GLOB path_planner_src_files src/*.cpp)
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   ${path_planner_src_files}
-  # ${path_planner_utils_src_files}
-#   ${graph_path_planner_hybrid_astar_src_files}
-  # ${graph_path_planner_src_files}
+  ${path_planner_utils_src_files}
+  # ${graph_path_planner_hybrid_astar_src_files}
+  ${graph_path_planner_src_files}
 #   ${sample_path_planner_src_files}
 #   ${evolutionary_path_planner_src_files}
 )

@@ -1,6 +1,22 @@
+/**
+ * *********************************************************
+ *
+ * @file: singleton.h
+ * @brief: Contains sigleton instance
+ * @author: Yang Haodong
+ * @date: 2024-09-22
+ * @version: 3.0
+ *
+ * Copyright (c) 2024, Yang Haodong.
+ * All rights reserved.
+ *
+ * --------------------------------------------------------
+ *
+ * ********************************************************
+ */
 #ifndef RMP_COMMON_STRUCTURE_SINGLETON_H_
 #define RMP_COMMON_STRUCTURE_SINGLETON_H_
-#include <memory>
+
 namespace rmp::common::structure
 {
 template <typename TSingleton>

@@ -25,8 +25,8 @@
 #include <std_msgs/ColorRGBA.h>
 #include <visualization_msgs/Marker.h>
 
-#include "geometry/point.h"
-#include "structure/singleton.h"
+#include "common/geometry/point.h"
+#include "common/structure/singleton.h"
 
 namespace rmp::common::util {
 class Visualizer {
@@ -152,9 +152,9 @@ public:
   /**
    * @brief publish lines
    */
-//   static void publishLines2d(const Lines2d& lines, const ros::Publisher& publisher,
-//                              const std::string& frame_id, const std::string& ns,
-//                              std_msgs::ColorRGBA color = RED, double scale = 0.2);
+  static void publishLines2d(const Lines2d& lines, const ros::Publisher& publisher,
+                             const std::string& frame_id, const std::string& ns,
+                             std_msgs::ColorRGBA color = RED, double scale = 0.2);
 
 private:
   static std_msgs::ColorRGBA _colorInit(double r, double g, double b, double a);

@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "geometry/point.h"
+#include "common/geometry/point.h"
 #include "path_planner.h"
 #include "path_planner_factory.h"
 #include <costmap_2d/costmap_2d_ros.h>
@@ -52,6 +52,6 @@ private:
   ros::Publisher particles_pub_;     // evolutionary particles publisher
   ros::ServiceServer make_plan_srv_; // planning service
 
-  std::string planner_type_;
+  PLANNER_TYPE planner_type_;
 };
 } // namespace rmp::path_planner

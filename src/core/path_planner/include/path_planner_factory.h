@@ -11,6 +11,7 @@
 #include <ros/ros.h>
 
 #include "path_planner.h"
+#include "graph_planner/astar_planner.h"
 
 namespace rmp::path_planner {
 enum PLANNER_TYPE {
@@ -19,7 +20,6 @@ enum PLANNER_TYPE {
   EVOLUTION_PLANNER = 2,
 };
 
-class AStarPathPlanner;
 
 class PathPlannerFactory {
 public:

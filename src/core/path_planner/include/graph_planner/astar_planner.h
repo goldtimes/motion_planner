@@ -19,7 +19,7 @@ public:
    * @param expand         containing the node been search during the process
    * @return true if path found, else false
    */
-  bool path(const common::geometry::Point3d &start,
+  bool plan(const common::geometry::Point3d &start,
             const common::geometry::Point3d &end,
             common::geometry::Points3d *path,
             common::geometry::Points3d *expand) override;

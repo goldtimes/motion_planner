@@ -7,19 +7,19 @@ bool PathPlannerFactory::createPlanner(ros::NodeHandle &nh,
   std::string planner_name;
   nh.param("planner_name", planner_name, (std::string) "astar"); // planner name
 
-  //   if (planner_name == "astar") {
-  //     planner_props.planner_ptr =
-  //     std::make_shared<AStarPathPlanner>(costmap_ros);
-  //     planner_props.planner_type = GRAPH_PLANNER;
-  //   } else if (planner_name == "dijkstra") {
-  //     planner_props.planner_ptr =
-  //         std::make_shared<AStarPathPlanner>(costmap_ros, true);
-  //     planner_props.planner_type = GRAPH_PLANNER;
-  //   } else if (planner_name == "gbfs") {
-  //     planner_props.planner_ptr =
-  //         std::make_shared<AStarPathPlanner>(costmap_ros, false, true);
-  //     planner_props.planner_type = GRAPH_PLANNER;
-  //   }
+    if (planner_name == "astar") {
+      planner_props.planner_ptr =
+      std::make_shared<AStarPathPlanner>(costmap_ros);
+      planner_props.planner_type = GRAPH_PLANNER;
+    } else if (planner_name == "dijkstra") {
+      planner_props.planner_ptr =
+          std::make_shared<AStarPathPlanner>(costmap_ros, true);
+      planner_props.planner_type = GRAPH_PLANNER;
+    } else if (planner_name == "gbfs") {
+      planner_props.planner_ptr =
+          std::make_shared<AStarPathPlanner>(costmap_ros, false, true);
+      planner_props.planner_type = GRAPH_PLANNER;
+    }
   //    else if (planner_name == "jps") {
   //     planner_props.planner_ptr =
   //     std::make_shared<JPSPathPlanner>(costmap_ros);
