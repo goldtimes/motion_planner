@@ -74,12 +74,14 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
                                const geometry_msgs::PoseStamped &goal,
                                double tolerance,
                                std::vector<geometry_msgs::PoseStamped> &plan) {
-                                 // start thread mutex
+  // start thread mutex
+  // 规划之前先对costmap加锁
   std::unique_lock<costmap_2d::Costmap2D::mutex_t> lock(
       *g_planner_->getCostMap()->getMutex());
   if (!initialized_) {
-    R_ERROR << "This planner has not been initialized yet, but it is being used, please "
-               "call initialize() before use";
+    ROS_ERROR("This planner has not been initialized yet, but it is being "
+              "used, please "
+              "call initialize() before use");
     return false;
   }
   // clear existing plan
@@ -87,21 +89,24 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
 
   // judege whether goal and start node in costmap frame or not
   if (goal.header.frame_id != frame_id_) {
-    R_ERROR << "The goal pose passed to this planner must be in the " << frame_id_
-            << " frame. It is instead in the " << goal.header.frame_id << " frame.";
+    ROS_ERROR_STREAM("The goal pose passed to this planner must be in the "
+                     << frame_id_.c_str() << " frame. It is instead in the "
+                     << goal.header.frame_id << " frame.");
     return false;
   }
 
   if (start.header.frame_id != frame_id_) {
-    R_ERROR << "The start pose passed to this planner must be in the " << frame_id_
-            << " frame. It is instead in the " << start.header.frame_id << " frame.";
+    ROS_ERROR_STREAM("The start pose passed to this planner must be in the "
+                     << frame_id_.c_str() << " frame. It is instead in the "
+                     << start.header.frame_id << " frame.");
     return false;
   }
 
   // visualization
-  const auto& visualizer = rmp::common::util::VisualizerPtr::Instance();
+  const auto &visualizer = rmp::common::util::VisualizerPtr::Instance();
 
   // outline the map
+  // 对全局地图的边界填充障碍物
   if (true) {
     g_planner_->outlineMap();
   }
@@ -112,18 +117,19 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
   bool path_found = false;
 
   // planning
-  // auto start_time = std::chrono::high_resolution_clock::now();
-  path_found = g_planner_->plan(
-      { start.pose.position.x, start.pose.position.y,
-        tf2::getYaw(start.pose.orientation) },
-      { goal.pose.position.x, goal.pose.position.y, tf2::getYaw(goal.pose.orientation) },
-      &origin_plan, &expand);
-  // auto finish_time = std::chrono::high_resolution_clock::now();
-  // std::chrono::duration<double> cal_time = finish_time - start_time;
-  // R_INFO << "Calculation Time: " << cal_time.count() << " s";
+  auto start_time = std::chrono::high_resolution_clock::now();
+  path_found = g_planner_->plan({start.pose.position.x, start.pose.position.y,
+                                 tf2::getYaw(start.pose.orientation)},
+                                {goal.pose.position.x, goal.pose.position.y,
+                                 tf2::getYaw(goal.pose.orientation)},
+                                &origin_plan, &expand);
+  auto finish_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> cal_time = finish_time - start_time;
+  R_INFO << "Calculation Time: " << cal_time.count() << " s";
 
   // convert path to ros plan
   if (path_found) {
+    // 将vector<point3ds> 转换为 std::vector<geometry_msgs::PoseStamped>
     if (_getPlanFromPath(origin_plan, plan)) {
       geometry_msgs::PoseStamped goalCopy = goal;
       goalCopy.header.stamp = ros::Time::now();
@@ -135,12 +141,13 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
       if (true) {
         if (planner_type_ == GRAPH_PLANNER) {
           // publish expand zone
-          visualizer->publishExpandZone(expand, costmap_ros_->getCostmap(), expand_pub_,
-                                        frame_id_);
+          // 展示全局路径算法的扩展点
+          visualizer->publishExpandZone(expand, costmap_ros_->getCostmap(),
+                                        expand_pub_, frame_id_);
         } else if (planner_type_ == SAMPLE_PLANNER) {
           // publish expand tree
           Visualizer::Lines2d tree_lines;
-          for (const auto& node : expand) {
+          for (const auto &node : expand) {
             // using theta to record parent id element
             if (node.theta() != 0) {
               int px_i, py_i;
@@ -148,9 +155,9 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
               g_planner_->index2Grid(node.theta(), px_i, py_i);
               g_planner_->map2World(px_i, py_i, px_d, py_d);
               g_planner_->map2World(node.x(), node.y(), x_d, y_d);
-              tree_lines.emplace_back(
-                  std::make_pair<common::geometry::Point2d, common::geometry::Point2d>(
-                      { x_d, y_d }, { px_d, py_d }));
+              tree_lines.emplace_back(std::make_pair<common::geometry::Point2d,
+                                                     common::geometry::Point2d>(
+                  {x_d, y_d}, {px_d, py_d}));
             }
           }
           visualizer->publishLines2d(tree_lines, tree_pub_, frame_id_, "tree",
@@ -158,28 +165,30 @@ bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
         } else if (planner_type_ == PLANNER_TYPE::EVOLUTION_PLANNER) {
           // publish expand particles
           common::geometry::Points2d markers;
-          for (const auto& node : expand) {
+          for (const auto &node : expand) {
             double wx, wy;
             g_planner_->map2World(node.x(), node.y(), wx, wy);
             markers.emplace_back(wx, wy);
           }
-          visualizer->publishPoints(markers, particles_pub_, frame_id_, "particles",
-                                    Visualizer::DARK_GREEN, 0.1, Visualizer::CUBE);
+          visualizer->publishPoints(markers, particles_pub_, frame_id_,
+                                    "particles", Visualizer::DARK_GREEN, 0.1,
+                                    Visualizer::CUBE);
         } else {
           R_WARN << "Unknown planner type.";
         }
       }
-
+      // 发布全局路径算法的路径
       visualizer->publishPlan(origin_plan, plan_pub_, frame_id_);
     } else {
-      R_ERROR << "Failed to get a plan from path when a legal path was found. This "
-                 "shouldn't happen.";
+      R_ERROR
+          << "Failed to get a plan from path when a legal path was found. This "
+             "shouldn't happen.";
     }
   } else {
-    R_ERROR << "Failed to get a path.";
+    ROS_ERROR_STREAM("Failed to get a path.");
   }
   return !plan.empty();
-                               }
+}
 
 bool PathPlannerNode::makePlanService(nav_msgs::GetPlan::Request &req,
                                       nav_msgs::GetPlan::Response &resp) {

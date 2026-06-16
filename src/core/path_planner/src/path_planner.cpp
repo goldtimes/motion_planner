@@ -81,10 +81,10 @@ void PathPlanner::outlineMap() {
 
 bool PathPlanner::validityCheck(double wx, double wy, double &mx, double &my) {
   if (!world2Map(wx, wy, mx, my)) {
-    R_WARN << "The robot's position is off the global costmap. Planning will "
-              "always "
-              "fail, are you sure the robot "
-              "has been properly localized?";
+    ROS_WARN("The robot's position is off the global costmap. Planning will "
+             "always "
+             "fail, are you sure the robot "
+             "has been properly localized?");
     return false;
   }
   return true;

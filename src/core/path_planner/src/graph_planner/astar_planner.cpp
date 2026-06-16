@@ -32,13 +32,15 @@ bool AStarPathPlanner::plan(const common::geometry::Point3d &start,
                             const common::geometry::Point3d &end,
                             common::geometry::Points3d *path,
                             common::geometry::Points3d *expand) {
+  ROS_INFO("AStarPathPlanner");
   double m_start_x, m_start_y, m_goal_x, m_goal_y;
-  if (validityCheck(start.x(), start.y(), m_start_x, m_start_y)) {
+  if (!validityCheck(start.x(), start.y(), m_start_x, m_start_y)) {
     return false;
   }
-  if (validityCheck(end.x(), end.y(), m_goal_x, m_goal_y)) {
+  if (!validityCheck(end.x(), end.y(), m_goal_x, m_goal_y)) {
     return false;
   }
+
   // 清空路径和扩展点
   path->clear();
   expand->clear();
@@ -47,6 +49,8 @@ bool AStarPathPlanner::plan(const common::geometry::Point3d &start,
   // 构建第一个起点,终点Node
   Node start_node(m_start_x, m_start_y);
   Node goal_node(m_goal_x, m_goal_y);
+  ROS_INFO("start_node: %d, %d", start_node.x(), start_node.y());
+  ROS_INFO("goal_node: %d, %d", goal_node.x(), goal_node.y());
   start_node.set_id(grid2Index(m_start_x, m_start_y));
   goal_node.set_id(grid2Index(m_goal_x, m_goal_y));
 
@@ -119,6 +123,4 @@ bool AStarPathPlanner::plan(const common::geometry::Point3d &start,
   return false;
 }
 
-
-
-// 
+//
