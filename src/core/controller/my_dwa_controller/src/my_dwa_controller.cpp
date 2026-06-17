@@ -114,7 +114,7 @@ void MyDWAController::loadParams() {
 
   // ── Velocity limits ──
   nh.param("max_vel_x", params_.max_vel_x, 0.55);
-  nh.param("min_vel_x", params_.min_vel_x, -0.1);
+  nh.param("min_vel_x", params_.min_vel_x, 0.0);
   nh.param("max_vel_y", params_.max_vel_y, 0.0);
   nh.param("max_vel_theta", params_.max_vel_theta, 1.0);
   nh.param("min_vel_theta", params_.min_vel_theta, -1.0);
