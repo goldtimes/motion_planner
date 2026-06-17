@@ -134,10 +134,10 @@ void MyDWAController::loadParams() {
   nh.param("vtheta_samples", params_.vtheta_samples, 20.0);
 
   // ── Cost weights ──
-  nh.param("obstacle_cost_weight", params_.obstacle_cost_weight, 10.0);
-  nh.param("path_cost_weight", params_.path_cost_weight, 1.0);
-  nh.param("goal_cost_weight", params_.goal_cost_weight, 0.5);
-  nh.param("speed_cost_weight", params_.speed_cost_weight, 0.1);
+  nh.param("obstacle_cost_weight", params_.obstacle_cost_weight, 1.5);
+  nh.param("path_cost_weight", params_.path_cost_weight, 0.5);
+  nh.param("goal_cost_weight", params_.goal_cost_weight, 0.1);
+  nh.param("speed_cost_weight", params_.speed_cost_weight, 0.15);
 
   // ── Obstacle ──
   nh.param("min_obstacle_dist", params_.min_obstacle_dist, 0.5);
