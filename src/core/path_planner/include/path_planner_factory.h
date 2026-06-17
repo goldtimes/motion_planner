@@ -10,8 +10,9 @@
  */
 #include <ros/ros.h>
 
-#include "path_planner.h"
 #include "graph_planner/astar_planner.h"
+#include "path_planner.h"
+#include "sample_planner/rrt_planner.h"
 
 namespace rmp::path_planner {
 enum PLANNER_TYPE {
@@ -19,7 +20,6 @@ enum PLANNER_TYPE {
   SAMPLE_PLANNER = 1, // 基于采样的路径规划器
   EVOLUTION_PLANNER = 2,
 };
-
 
 class PathPlannerFactory {
 public:

@@ -66,8 +66,7 @@ void PathPlannerNode::initialize(std::string name) {
 bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,
                                const geometry_msgs::PoseStamped &goal,
                                std::vector<geometry_msgs::PoseStamped> &plan) {
-  // TODO: add tolerance
-  double tolerance = 0.1;
+  double tolerance = 0.0;
   return makePlan(start, goal, tolerance, plan);
 }
 bool PathPlannerNode::makePlan(const geometry_msgs::PoseStamped &start,

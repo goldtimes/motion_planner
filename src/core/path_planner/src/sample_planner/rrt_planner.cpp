@@ -101,6 +101,78 @@ RRTPlanner::Node RRTPlanner::_generateRandomNode() {
 // 计算最邻近
 RRTPlanner::Node
 RRTPlanner::_findNearestNode(std::unordered_map<int, Node> &list,
-                             const Node &node) {}
+                             const Node &node) {
+  Node nearest_node;
+  Node new_node(node);
+  double min_dist = std::numeric_limits<double>::max();
+  // 遍历树节点
+  for (const auto &p : list) {
+    // 计算树到采样点的欧式距离
+    // double dx = p.second.x() - node.x();
+    // double dy = p.second.y() - node.y();
+    // double manhattan_dist = std::fabs(dx) + std::fabs(dy);
+    double new_dist =
+        std::hypot(p.second.x() - node.x(), p.second.y() - node.y());
+    // 更新最近邻近点
+    if (new_dist < min_dist) {
+      min_dist = new_dist;
+      nearest_node = p.second;
+      // 将这个最近邻近点作为新节点的父节点
+      new_node.set_pid(nearest_node.id());
+      // 更新新节点的g值 new_node 到最近邻的代价
+      new_node.set_g(new_dist + p.second.g());
+    }
+  }
+  // 上面已经找到最近邻近点。如果最近邻和采样点的距离大于threshold,不能直接连接步长太大，容易穿过障碍物、运动不连续
+  // 于是沿着两点连线，从最近节点向外截取一段长度为 max_dist
+  // 的点作为真正新增节点
+  if (min_dist > sample_max_distance_) {
+    double theta = std::atan2(new_node.y() - nearest_node.y(),
+                              new_node.x() - nearest_node.x());
+    new_node.set_x(nearest_node.x() +
+                   static_cast<int>(sample_max_distance_ * cos(theta)));
+    new_node.set_y(nearest_node.y() +
+                   static_cast<int>(sample_max_distance_ * sin(theta)));
+    new_node.set_id(grid2Index(new_node.x(), new_node.y()));
+    new_node.set_g(sample_max_distance_ + nearest_node.g());
+  }
+  // 判断new_node 和 nearest_node 之间连线是否与障碍物碰撞
+  auto isCollision = [&](const Node &node1, const Node &node2) {
+    return rmp::common::geometry::CollisionChecker::BresenhamCollisionDetection(
+        node1, node2, [&](const Node &node) {
+          return costmap_->getCharMap()[grid2Index(node.x(), node.y())] >=
+                 costmap_2d::LETHAL_OBSTACLE;
+        });
+  };
+  if (isCollision(new_node, nearest_node)) {
+    new_node.set_id(-1);
+  }
+  return new_node;
+}
+/**
+ * @brief Check if goal is reachable from current node
+ * @param new_node Current node
+ * @return bool value of whether goal is reachable from current node
+ */
 // 计算是否到达目标点
-bool RRTPlanner::_checkGoal(const Node &new_node) {}
+bool RRTPlanner::_checkGoal(const Node &new_node) {
+  auto dist_ = std::hypot(new_node.x() - goal_.x(), new_node.y() - goal_.y());
+  if (dist_ > sample_max_distance_)
+    return false;
+
+  auto isCollision = [&](const Node &node1, const Node &node2) {
+    return rmp::common::geometry::CollisionChecker::BresenhamCollisionDetection(
+        node1, node2, [&](const Node &node) {
+          return costmap_->getCharMap()[grid2Index(node.x(), node.y())] >=
+                 costmap_2d::LETHAL_OBSTACLE;
+        });
+  };
+
+  if (!isCollision(new_node, goal_)) {
+    Node goal(goal_.x(), goal_.y(), dist_ + new_node.g(), 0,
+              grid2Index(goal_.x(), goal_.y()), new_node.id());
+    sample_list_.insert(std::make_pair(goal.id(), goal));
+    return true;
+  }
+  return false;
+}
