@@ -1,0 +1,9 @@
+<library path="lib/libmy_dwa_controller">
+    <class name="my_dwa_controller/MyDWAController" type="rmp::controller::MyDWAController"
+        base_class_type="nav_core::BaseLocalPlanner">
+        <description>
+            A clean from-scratch implementation of the Dynamic Window Approach (DWA)
+            for local robot navigation.
+        </description>
+    </class>
+</library>

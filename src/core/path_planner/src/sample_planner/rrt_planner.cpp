@@ -9,6 +9,7 @@ RRTPlanner::RRTPlanner(costmap_2d::Costmap2DROS *costmap)
   rng_eng_.seed(rd());
   prob_dist_ = std::uniform_real_distribution<float>(0.f, 1.f);
 }
+
 RRTPlanner::~RRTPlanner() {}
 
 bool RRTPlanner::plan(const common::geometry::Point3d &start,
@@ -49,7 +50,7 @@ bool RRTPlanner::plan(const common::geometry::Point3d &start,
     // 检查这个随机的节点是否合法
     // obstacle
     if (costmap_->getCharMap()[sample_node.id()] >=
-        costmap_2d::LETHAL_OBSTACLE) {
+        costmap_2d::LETHAL_OBSTACLE * 0.5) {
       continue;
     }
 
@@ -141,7 +142,7 @@ RRTPlanner::_findNearestNode(std::unordered_map<int, Node> &list,
     return rmp::common::geometry::CollisionChecker::BresenhamCollisionDetection(
         node1, node2, [&](const Node &node) {
           return costmap_->getCharMap()[grid2Index(node.x(), node.y())] >=
-                 costmap_2d::LETHAL_OBSTACLE;
+                 costmap_2d::LETHAL_OBSTACLE * 0.5;
         });
   };
   if (isCollision(new_node, nearest_node)) {
@@ -164,7 +165,7 @@ bool RRTPlanner::_checkGoal(const Node &new_node) {
     return rmp::common::geometry::CollisionChecker::BresenhamCollisionDetection(
         node1, node2, [&](const Node &node) {
           return costmap_->getCharMap()[grid2Index(node.x(), node.y())] >=
-                 costmap_2d::LETHAL_OBSTACLE;
+                 costmap_2d::LETHAL_OBSTACLE * 0.5;
         });
   };
 
