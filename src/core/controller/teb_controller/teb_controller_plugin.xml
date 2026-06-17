@@ -1,0 +1,12 @@
+<library path="lib/libteb_controller">
+  <class name="teb_controller/TEBController" type="rmp::controller::TEBController"
+      base_class_type="nav_core::BaseLocalPlanner">
+    <description>
+      A implementation of a local planner using the Timed Elastic Band (TEB) approach.
+      TEB optimizes a trajectory represented as a sequence of robot poses with associated
+      time intervals using Ceres-solver for sparse nonlinear optimization. It considers
+      path following, obstacle avoidance, velocity/acceleration limits, non-holonomic
+      kinematics, and time optimality.
+    </description>
+  </class>
+</library>

@@ -18,8 +18,8 @@
                 "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
                 "CMAKE_BUILD_TYPE": "Release"
             },
-            "toolchainFile": "/root/catkin_ws/motion_planner/3rd/build/build/Release/generators/conan_toolchain.cmake",
-            "binaryDir": "/root/catkin_ws/motion_planner/3rd/build/build/Release"
+            "toolchainFile": "/motion_ws/3rd/build/build/Release/generators/conan_toolchain.cmake",
+            "binaryDir": "/motion_ws/3rd/build/build/Release"
         }
     ],
     "buildPresets": [

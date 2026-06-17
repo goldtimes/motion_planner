@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package rmp.pb.controller;
+
+message TEBController {
+  // optimization horizon
+  int64 teb_horizon = 1;           // number of poses in TEB trajectory
+  double teb_dt_resolution = 2;    // base time resolution (s)
+  int64 teb_iterations = 3;        // max optimization iterations
+
+  // weight coefficients
+  double weight_path = 4;          // path following weight
+  double weight_obstacle = 5;      // obstacle avoidance weight
+  double weight_velocity = 6;      // velocity limits weight
+  double weight_acceleration = 7;  // acceleration limits weight
+  double weight_time = 8;         // time optimality weight
+  double weight_smoothness = 9;   // trajectory smoothness weight
+  double weight_kinematics = 10;  // non-holonomic kinematics weight
+
+  // velocity limits
+  double max_linear_vel = 11;
+  double min_linear_vel = 12;
+  double max_angular_vel = 13;
+  double min_angular_vel = 14;
+
+  // acceleration limits
+  double max_linear_acc = 15;
+  double max_angular_acc = 16;
+
+  // obstacle avoidance
+  double obstacle_min_dist = 17;   // minimum distance to obstacles
+  double inflate_obstacle_radius = 18;  // inflation radius for obstacles
+
+  // lookahead parameters
+  double lookahead_time = 19;
+  double min_lookahead_dist = 20;
+  double max_lookahead_dist = 21;
+
+  // optimization parameters
+  double convergence_delta = 22;   // convergence threshold
+  double dt_hysteresis = 23;      // dt change damping
+  bool enable_homotopy = 24;      // enable homotopy class planning
+  int64 max_homotopy_classes = 25;
+}
