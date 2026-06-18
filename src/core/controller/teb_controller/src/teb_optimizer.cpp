@@ -108,8 +108,30 @@ void TEBOptimizer::initTrajectory(
   // Total arc length remaining
   double total_length =
       reference_arclength_.back() - reference_arclength_[reference_idx_];
-  if (total_length < 0.1) {
-    total_length = 1.0;
+
+  // If the remaining path is too short, create a minimal forward trajectory
+  // to avoid collapsing all poses to the same point (which causes NaN in
+  // Ceres).
+  if (total_length < 0.3) {
+    trajectory_.clear();
+    for (int i = 0; i < config_.teb_horizon; ++i) {
+      double t = static_cast<double>(i) * config_.teb_dt_resolution;
+      TEBPose pose;
+      pose.x = current_pose.x() +
+               t * config_.max_linear_vel * 0.5 * std::cos(current_pose.z());
+      pose.y = current_pose.y() +
+               t * config_.max_linear_vel * 0.5 * std::sin(current_pose.z());
+      pose.theta = current_pose.z();
+      pose.dt = config_.teb_dt_resolution;
+      trajectory_.push_back(pose);
+    }
+    // Ensure first pose matches current robot pose
+    trajectory_[0].x = current_pose.x();
+    trajectory_[0].y = current_pose.y();
+    trajectory_[0].theta = current_pose.z();
+    R_DEBUG << "TEB: Short path (" << total_length
+            << "m), using forward projection";
+    return;
   }
 
   // Distribute poses along the reference path
@@ -143,6 +165,36 @@ void TEBOptimizer::initTrajectory(
       }
     }
     pose.dt = config_.teb_dt_resolution;
+
+    // Obstacle-aware initialization: if pose is inside an obstacle,
+    // shift it sideways (perpendicular to path direction) to find free space.
+    const int max_shift_attempts = 10;
+    const double shift_step = costmap_ ? costmap_->getResolution() * 2.0 : 0.1;
+    double occ = getObstacleCost(pose.x, pose.y);
+    if (occ > 0.5) {
+      // Determine shift direction from the segment heading
+      double heading = pose.theta;
+      // Try left shifts, then right shifts
+      for (int s = 1; s <= max_shift_attempts; ++s) {
+        double shift = s * shift_step;
+        // Try left
+        double lx = pose.x + shift * std::cos(heading + M_PI / 2.0);
+        double ly = pose.y + shift * std::sin(heading + M_PI / 2.0);
+        if (getObstacleCost(lx, ly) < 0.2) {
+          pose.x = lx;
+          pose.y = ly;
+          break;
+        }
+        // Try right
+        double rx = pose.x + shift * std::cos(heading - M_PI / 2.0);
+        double ry = pose.y + shift * std::sin(heading - M_PI / 2.0);
+        if (getObstacleCost(rx, ry) < 0.2) {
+          pose.x = rx;
+          pose.y = ry;
+          break;
+        }
+      }
+    }
     trajectory_.push_back(pose);
   }
 
@@ -151,6 +203,20 @@ void TEBOptimizer::initTrajectory(
     trajectory_[0].x = current_pose.x();
     trajectory_[0].y = current_pose.y();
     trajectory_[0].theta = current_pose.z();
+
+    // Align p1 with p0's heading direction so the kinematics constraint
+    // (p0.theta = motion_dir) can be satisfied from the start.
+    // Without this, p1 is placed on the reference path which may be to the
+    // side of the robot, producing dtheta=0 but requiring sideways motion.
+    if (trajectory_.size() > 1) {
+      double dist = std::hypot(trajectory_[1].x - trajectory_[0].x,
+                               trajectory_[1].y - trajectory_[0].y);
+      trajectory_[1].x =
+          trajectory_[0].x + dist * std::cos(trajectory_[0].theta);
+      trajectory_[1].y =
+          trajectory_[0].y + dist * std::sin(trajectory_[0].theta);
+      // Keep p1.theta as-is (it will be optimized to match the curve)
+    }
   }
 
   R_DEBUG << "TEB: Trajectory initialized with " << trajectory_.size()
@@ -246,17 +312,17 @@ bool TEBOptimizer::optimize() {
   // 5. Non-holonomic kinematics cost
   for (int i = 0; i < N - 1; ++i) {
     ceres::CostFunction *kin_cost =
-        new ceres::AutoDiffCostFunction<KinematicsCostFunctor, 2, 4, 4>(
+        new ceres::AutoDiffCostFunction<KinematicsCostFunctor, 1, 4, 4>(
             new KinematicsCostFunctor(config_.weight_kinematics));
     problem_->AddResidualBlock(kin_cost, nullptr, param_blocks_[i],
                                param_blocks_[i + 1]);
   }
 
-  // 6. Obstacle cost (using costmap)
-  // Since Ceres auto-diff cannot call costmap functions directly,
-  // we pre-compute the obstacle cost and add it as a fixed penalty
+  // 6. Obstacle cost (using costmap — pre-computed in per_pose_obstacle_cost_)
   for (int i = 0; i < N; ++i) {
-    double occ_cost = getObstacleCost(trajectory_[i].x, trajectory_[i].y);
+    double occ_cost = (i < static_cast<int>(per_pose_obstacle_cost_.size()))
+                          ? per_pose_obstacle_cost_[i]
+                          : getObstacleCost(trajectory_[i].x, trajectory_[i].y);
     if (occ_cost > 1e-6) {
       ceres::CostFunction *obs_cost =
           new ceres::AutoDiffCostFunction<ObstacleCostFunctor, 1, 4>(
@@ -297,6 +363,17 @@ bool TEBOptimizer::optimize() {
   return success;
 }
 
+void TEBOptimizer::updateObstacleCosts() {
+  // Re-compute obstacle costs for each trajectory pose based on current
+  // positions. This is called between optimization passes so that the next pass
+  // sees updated obstacle costs (approximating a gradient for avoidance).
+  per_pose_obstacle_cost_.resize(trajectory_.size());
+  for (size_t i = 0; i < trajectory_.size(); ++i) {
+    per_pose_obstacle_cost_[i] =
+        getObstacleCost(trajectory_[i].x, trajectory_[i].y);
+  }
+}
+
 const std::vector<TEBPose> &TEBOptimizer::getTrajectory() const {
   return trajectory_;
 }
@@ -329,7 +406,6 @@ bool TEBOptimizer::getVelocityCommand(double &v, double &w) const {
     return false;
   }
 
-  // Extract velocity from first two poses
   const auto &p0 = trajectory_[0];
   const auto &p1 = trajectory_[1];
 
@@ -338,27 +414,63 @@ bool TEBOptimizer::getVelocityCommand(double &v, double &w) const {
   double dist = std::sqrt(dx * dx + dy * dy);
   double dt = std::max(p0.dt, 1e-3);
 
-  // Linear velocity
+  // Linear velocity from local displacement
   v = dist / dt;
 
-  // Angular velocity
-  double dtheta = p1.theta - p0.theta;
-  dtheta = std::atan2(std::sin(dtheta), std::cos(dtheta));
-  w = dtheta / dt;
+  // ── Angular velocity: use a look-ahead point on the reference plan ──
+  // Instead of computing w from p1.theta - p0.theta (which is noisy because
+  // the optimizer's local p1 position oscillates between kinematics and
+  // path costs), compute the heading error towards a look-ahead point
+  // on the reference path. This gives smooth, stable turning.
+  double desired_heading = p0.theta;
+
+  if (!reference_plan_.empty()) {
+    double lookahead_dist = 0.5;
+    double accumulated = 0.0;
+    Eigen::Vector3d lookahead_pt = reference_plan_.back();
+
+    for (size_t i = reference_idx_; i + 1 < reference_plan_.size(); ++i) {
+      double seg_dx = reference_plan_[i + 1].x() - reference_plan_[i].x();
+      double seg_dy = reference_plan_[i + 1].y() - reference_plan_[i].y();
+      double seg_len = std::sqrt(seg_dx * seg_dx + seg_dy * seg_dy);
+      accumulated += seg_len;
+      if (accumulated >= lookahead_dist) {
+        lookahead_pt = reference_plan_[i + 1];
+        break;
+      }
+    }
+
+    desired_heading =
+        std::atan2(lookahead_pt.y() - p0.y, lookahead_pt.x() - p0.x);
+  }
+
+  double heading_err = desired_heading - p0.theta;
+  heading_err = std::atan2(std::sin(heading_err), std::cos(heading_err));
+
+  // P-controller: w = gain * heading_error
+  // gain=2.0 → 90° error → w≈3.1 rad/s, 10° error → w≈0.35 rad/s
+  double w_gain = 2.0;
+  w = w_gain * heading_err;
 
   // Clamp to limits
   v = std::max(config_.min_linear_vel, std::min(v, config_.max_linear_vel));
   w = std::max(config_.min_angular_vel, std::min(w, config_.max_angular_vel));
 
-  // Direction check: if robot needs to go backward significantly, reverse
-  // For non-holonomic robots, we prefer forward motion
-  double heading_diff = std::atan2(std::sin(p0.theta), std::cos(p0.theta));
+  // Direction check
   double motion_dir = std::atan2(dy, dx);
-  double angle_diff = motion_dir - heading_diff;
-  angle_diff = std::atan2(std::sin(angle_diff), std::cos(angle_diff));
+  double heading_diff = motion_dir - p0.theta;
+  heading_diff = std::atan2(std::sin(heading_diff), std::cos(heading_diff));
+  if (std::abs(heading_diff) > M_PI / 2.0) {
+    v = -v;
+  }
 
-  if (std::abs(angle_diff) > M_PI_2) {
-    v = -v; // reverse
+  // Debug log
+  static int debug_counter = 0;
+  if (++debug_counter % 10 == 1) {
+    ROS_INFO("TEB vel: p0=(%.2f,%.2f,th=%.2f) v=%.3f w=%.3f "
+             "des_hdg=%.2f err=%.2f ref_pts=%zu",
+             p0.x, p0.y, p0.theta, v, w, desired_heading, heading_err,
+             reference_plan_.size());
   }
 
   return true;
@@ -432,20 +544,24 @@ double TEBOptimizer::getObstacleCost(double wx, double wy) const {
 
   unsigned int mx, my;
   if (!costmap_->worldToMap(wx, wy, mx, my)) {
-    return 0.0; // outside map
+    return 0.5; // outside map: penalize mildly (conservative)
   }
 
   unsigned char cost = costmap_->getCost(mx, my);
   if (cost == costmap_2d::NO_INFORMATION) {
-    return 0.0;
+    return 0.1; // unknown: small penalty (conservative)
   }
 
-  // Convert cost to a normalized value [0, 1]
-  double normalized_cost = static_cast<double>(cost) / 255.0;
+  // Normalize cost to [0, 1]
+  double normalized = static_cast<double>(cost) / 255.0;
 
-  // Apply exponential scaling to create smooth gradient
-  if (normalized_cost > 0.2) {
-    return std::exp(5.0 * (normalized_cost - 0.8)) - 1.0;
+  // Exponential scaling: cost grows rapidly as you approach an obstacle.
+  // At cost=0 (free) → 0
+  // At cost=200 (~0.78) → mild
+  // At cost=253 (INSCRIBED_INFLATED) → large
+  if (normalized > 0.3) {
+    double x = (normalized - 0.3) / 0.7; // remap [0.3, 1.0] → [0.0, 1.0]
+    return std::exp(4.0 * x) - 1.0;
   }
 
   return 0.0;

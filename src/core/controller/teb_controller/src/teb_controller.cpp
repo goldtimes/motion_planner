@@ -80,25 +80,25 @@ void TEBController::initialize(std::string name, tf2_ros::Buffer *tf,
   updateConfigFromProtobuf();
 
   // Read parameters from the parameter server (overrides protobuf defaults)
-  private_nh.param("teb_horizon", teb_config.teb_horizon, 30);
-  private_nh.param("teb_dt_resolution", teb_config.teb_dt_resolution, 0.3);
-  private_nh.param("teb_iterations", teb_config.teb_iterations, 100);
+  private_nh.param("teb_horizon", teb_config.teb_horizon, 40);
+  private_nh.param("teb_dt_resolution", teb_config.teb_dt_resolution, 0.15);
+  private_nh.param("teb_iterations", teb_config.teb_iterations, 80);
 
-  private_nh.param("weight_path", teb_config.weight_path, 1.0);
-  private_nh.param("weight_obstacle", teb_config.weight_obstacle, 1.0);
+  private_nh.param("weight_path", teb_config.weight_path, 2.0);
+  private_nh.param("weight_obstacle", teb_config.weight_obstacle, 5.0);
   private_nh.param("weight_velocity", teb_config.weight_velocity, 1.0);
-  private_nh.param("weight_acceleration", teb_config.weight_acceleration, 1.0);
-  private_nh.param("weight_time", teb_config.weight_time, 1.0);
-  private_nh.param("weight_smoothness", teb_config.weight_smoothness, 1.0);
-  private_nh.param("weight_kinematics", teb_config.weight_kinematics, 1.0);
+  private_nh.param("weight_acceleration", teb_config.weight_acceleration, 0.5);
+  private_nh.param("weight_time", teb_config.weight_time, 0.5);
+  private_nh.param("weight_smoothness", teb_config.weight_smoothness, 2.0);
+  private_nh.param("weight_kinematics", teb_config.weight_kinematics, 50.0);
 
   private_nh.param("max_linear_vel", teb_config.max_linear_vel, 0.5);
-  private_nh.param("min_linear_vel", teb_config.min_linear_vel, 0.0);
+  private_nh.param("min_linear_vel", teb_config.min_linear_vel, -0.2);
   private_nh.param("max_angular_vel", teb_config.max_angular_vel, 1.5);
-  private_nh.param("min_angular_vel", teb_config.min_angular_vel, 0.0);
+  private_nh.param("min_angular_vel", teb_config.min_angular_vel, -1.5);
 
-  private_nh.param("max_linear_acc", teb_config.max_linear_acc, 0.5);
-  private_nh.param("max_angular_acc", teb_config.max_angular_acc, 1.5);
+  private_nh.param("max_linear_acc", teb_config.max_linear_acc, 1.0);
+  private_nh.param("max_angular_acc", teb_config.max_angular_acc, 6.0);
 
   private_nh.param("obstacle_min_dist", teb_config.obstacle_min_dist, 0.2);
   private_nh.param("inflate_obstacle_radius",
@@ -186,6 +186,20 @@ bool TEBController::setPlan(
   // Store the global plan
   global_plan_ = orig_global_plan;
 
+  // Also set plan on planner_util_ so LatchedStopRotateController
+  // and other base_local_planner utilities can find the goal pose.
+  // If the plan's frame_id is empty, fill it with the global frame.
+  std::vector<geometry_msgs::PoseStamped> plan_for_util = orig_global_plan;
+  if (!plan_for_util.empty() && plan_for_util.front().header.frame_id.empty()) {
+    std::string global_frame = costmap_ros_->getGlobalFrameID();
+    for (auto &pose : plan_for_util) {
+      pose.header.frame_id = global_frame;
+    }
+    ROS_DEBUG("TEB: Filled empty frame_ids in plan with '%s'",
+              global_frame.c_str());
+  }
+  planner_util_.setPlan(plan_for_util);
+
   // Update goal pose
   if (!global_plan_.empty()) {
     const auto &goal = global_plan_.back();
@@ -228,8 +242,11 @@ bool TEBController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
   Eigen::Vector3d current_state(robot_x, robot_y, robot_theta);
 
   // Check if goal is reached (distance check)
-  if (latched_stop_rotate_controller_.isGoalReached(
-          &planner_util_, odom_helper_, current_pose_)) {
+  // Only call the latched controller if we have a valid plan with frame_ids.
+  bool have_valid_plan =
+      !global_plan_.empty() && !global_plan_.back().header.frame_id.empty();
+  if (have_valid_plan && latched_stop_rotate_controller_.isGoalReached(
+                             &planner_util_, odom_helper_, current_pose_)) {
     goal_reached_ = true;
     cmd_vel.linear.x = 0.0;
     cmd_vel.angular.z = 0.0;
@@ -237,19 +254,35 @@ bool TEBController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
   }
 
   // Check if we should rotate to goal first (final approach)
-  // The LatchedStopRotateController uses its own internal logic via
-  // isGoalReached and computeVelocityCommands; we replicate the
-  // rotation-to-goal behavior here.
+  // When close to the goal, stop forward motion and rotate to match the
+  // goal orientation. This prevents the TEB look-ahead from commanding
+  // the robot to drive past the goal while turning.
   double goal_dist = std::hypot(goal_x_ - current_pose_.pose.position.x,
                                 goal_y_ - current_pose_.pose.position.y);
-  if (goal_dist < 0.3) { // close to goal, rotate to final orientation
+  if (goal_dist < 0.5) {
     double theta = tf2::getYaw(current_pose_.pose.orientation);
-    double angle_diff = goal_theta_ - theta;
-    angle_diff = std::atan2(std::sin(angle_diff), std::cos(angle_diff));
+    double dir_to_goal = std::atan2(goal_y_ - current_pose_.pose.position.y,
+                                    goal_x_ - current_pose_.pose.position.x);
+    double angle_diff = angles::shortest_angular_distance(theta, goal_theta_);
+    double dir_diff = angles::shortest_angular_distance(theta, dir_to_goal);
 
-    if (std::abs(angle_diff) > 0.1) {
+    // If both position AND orientation are within tolerance → goal reached
+    if (goal_dist < 0.15 && std::abs(angle_diff) < 0.15) {
+      goal_reached_ = true;
       cmd_vel.linear.x = 0.0;
-      cmd_vel.angular.z = std::max(-0.5, std::min(angle_diff, 0.5));
+      cmd_vel.angular.z = 0.0;
+      ROS_INFO("TEB: GOAL Reached! (final approach)");
+      return true;
+    }
+
+    // Otherwise rotate in place toward the goal
+    if (std::abs(angle_diff) > 0.1 || std::abs(dir_diff) > 0.3) {
+      double target_angle =
+          (std::abs(angle_diff) > std::abs(dir_diff)) ? angle_diff : dir_diff;
+      cmd_vel.linear.x = 0.0;
+      cmd_vel.angular.z = std::max(-0.8, std::min(target_angle, 0.8));
+      ROS_DEBUG("TEB: final approach: goal_dist=%.3f, turn=%.3f", goal_dist,
+                target_angle);
       return true;
     }
   }
@@ -258,29 +291,53 @@ bool TEBController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
   std::vector<geometry_msgs::PoseStamped> prune_plan = prunePlan(current_pose_);
 
   if (prune_plan.empty()) {
+    // If the plan is empty but we're close to the goal, consider it reached.
+    double goal_dist = std::hypot(goal_x_ - current_pose_.pose.position.x,
+                                  goal_y_ - current_pose_.pose.position.y);
+    double angle_diff = angles::shortest_angular_distance(
+        current_pose_.pose.position.z, goal_theta_);
+
+    if (goal_dist < 0.3 && std::abs(angle_diff) < 0.3) {
+      goal_reached_ = true;
+      cmd_vel.linear.x = 0.0;
+      cmd_vel.angular.z = 0.0;
+      ROS_INFO("TEB: Goal reached (near goal, plan exhausted)");
+      return true;
+    }
+
     ROS_WARN("TEB: Pruned plan is empty, stopping");
     cmd_vel.linear.x = 0.0;
     cmd_vel.angular.z = 0.0;
     return true;
   }
 
-  // Update reference plan in optimizer if needed
+  // Update reference plan in optimizer
   teb_optimizer_->setReferencePlan(prune_plan);
 
   // Initialize TEB trajectory from current state and reference plan
+  // The initial trajectory is already obstacle-aware (shifts poses away from
+  // obstacles before the first optimization).
   teb_optimizer_->initTrajectory(current_state, prune_plan);
 
-  // Run optimization
-  bool optimization_success = teb_optimizer_->optimize();
+  // Run multi-pass optimization: optimize → update obstacle costs → optimize
+  // again This allows the obstacle cost to "move" with the trajectory, giving
+  // Ceres meaningful gradient information for obstacle avoidance.
+  bool optimization_success = false;
+  for (int pass = 0; pass < 3; ++pass) {
+    optimization_success = teb_optimizer_->optimize();
+    if (!optimization_success) {
+      break; // no point continuing if optimization fails
+    }
+    if (pass < 2) {
+      // Refresh obstacle costs based on new pose positions, then re-optimize
+      teb_optimizer_->updateObstacleCosts();
+    }
+  }
 
   if (!optimization_success) {
-    // Fallback: try with fewer iterations
+    // Fallback: try once more from a fresh initialization
     R_WARN << "TEB: Optimization failed, trying fallback...";
-
-    // Re-initialize with more conservative settings
     teb_optimizer_->initTrajectory(current_state, prune_plan);
-
-    // Try again with relaxed config
     optimization_success = teb_optimizer_->optimize();
 
     if (!optimization_success) {
@@ -300,14 +357,14 @@ bool TEBController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
     return false;
   }
 
-  // Apply acceleration limits
+  // Apply acceleration limits (from teb_config)
   double current_v = robot_vel.pose.position.x;
   double current_w = tf2::getYaw(robot_vel.pose.orientation);
 
-  double max_linear_acc = 0.5; // TODO: read from config
-  double max_angular_acc = 1.5;
+  double max_linear_acc = teb_optimizer_->getConfig().max_linear_acc;
+  double max_angular_acc = teb_optimizer_->getConfig().max_angular_acc;
 
-  // Rate-limited velocity commands (manual clamp for C++11 compat)
+  // Rate-limited velocity commands
   double v_lo = current_v - max_linear_acc * 0.1;
   double v_hi = current_v + max_linear_acc * 0.1;
   cmd_vel.linear.x = std::max(v_lo, std::min(v, v_hi));
@@ -342,6 +399,23 @@ bool TEBController::isGoalReached() {
     return false;
   }
 
+  // Only check goal with latched controller if plan has valid frame_ids
+  bool have_valid_plan =
+      !global_plan_.empty() && !global_plan_.back().header.frame_id.empty();
+  if (!have_valid_plan) {
+    // Fallback: simple distance + angle check
+    double dx = goal_x_ - current_pose_.pose.position.x;
+    double dy = goal_y_ - current_pose_.pose.position.y;
+    double dist = std::hypot(dx, dy);
+    double angle_diff = angles::shortest_angular_distance(
+        tf2::getYaw(current_pose_.pose.orientation), goal_theta_);
+    if (dist < 0.3 && std::abs(angle_diff) < 0.3) {
+      goal_reached_ = true;
+      return true;
+    }
+    return false;
+  }
+
   if (latched_stop_rotate_controller_.isGoalReached(
           &planner_util_, odom_helper_, current_pose_)) {
     if (!goal_reached_) {
@@ -367,7 +441,8 @@ void TEBController::publishGlobalPlan(
 void TEBController::transformPose(const std::string &target_frame,
                                   const geometry_msgs::PoseStamped &in_pose,
                                   geometry_msgs::PoseStamped &out_pose) const {
-  if (tf_ &&
+  // Avoid TF lookup with empty frame_ids (causes tf2 warnings)
+  if (tf_ && !target_frame.empty() && !in_pose.header.frame_id.empty() &&
       tf_->canTransform(target_frame, in_pose.header.frame_id, ros::Time(0))) {
     tf_->transform(in_pose, out_pose, target_frame);
   } else {
@@ -395,10 +470,18 @@ TEBController::prunePlan(const geometry_msgs::PoseStamped &robot_pose) const {
     }
   }
 
-  // Keep from nearest_idx onwards
+  // Keep from nearest_idx+1 onwards (skip the point the robot has already
+  // passed). This prevents the look-ahead from pointing backward when the robot
+  // is close to or past a waypoint.
   std::vector<geometry_msgs::PoseStamped> pruned;
-  for (size_t i = nearest_idx; i < global_plan_.size(); ++i) {
+  for (size_t i = nearest_idx + 1; i < global_plan_.size(); ++i) {
     pruned.push_back(global_plan_[i]);
+  }
+
+  // If pruning removed everything (robot at or past the last waypoint),
+  // include the last waypoint as the goal reference.
+  if (pruned.empty() && !global_plan_.empty()) {
+    pruned.push_back(global_plan_.back());
   }
 
   return pruned;

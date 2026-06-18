@@ -36,28 +36,28 @@ namespace rmp::controller {
  */
 struct TEBConfig {
   // optimization horizon
-  int teb_horizon = 30;           // number of poses in TEB trajectory
-  double teb_dt_resolution = 0.3; // base time resolution (s)
-  int teb_iterations = 100;       // max optimization iterations
+  int teb_horizon = 40;            // number of poses in TEB trajectory
+  double teb_dt_resolution = 0.15; // base time resolution (s) — finer than 0.3
+  int teb_iterations = 80;         // max optimization iterations per pass
 
-  // weight coefficients
-  double weight_path = 1.0;         // path following weight
-  double weight_obstacle = 1.0;     // obstacle avoidance weight
+  // weight coefficients (tuned for balanced behavior)
+  double weight_path = 2.0;         // path following weight
+  double weight_obstacle = 5.0;     // obstacle avoidance weight
   double weight_velocity = 1.0;     // velocity limits weight
-  double weight_acceleration = 1.0; // acceleration limits weight
-  double weight_time = 1.0;         // time optimality weight
-  double weight_smoothness = 1.0;   // trajectory smoothness weight
-  double weight_kinematics = 1.0;   // non-holonomic kinematics weight
+  double weight_acceleration = 0.5; // acceleration limits weight
+  double weight_time = 0.5;         // time optimality weight
+  double weight_smoothness = 2.0;   // trajectory smoothness weight
+  double weight_kinematics = 50.0;  // non-holonomic kinematics weight
 
-  // velocity limits
+  // velocity limits (min_angular_vel MUST be negative to allow right turns)
   double max_linear_vel = 0.5;
-  double min_linear_vel = 0.0;
+  double min_linear_vel = -0.2;
   double max_angular_vel = 1.5;
-  double min_angular_vel = 0.0;
+  double min_angular_vel = -1.5;
 
   // acceleration limits
-  double max_linear_acc = 0.5;
-  double max_angular_acc = 1.5;
+  double max_linear_acc = 1.0;
+  double max_angular_acc = 6.0;
 
   // obstacle avoidance
   double obstacle_min_dist = 0.2;       // minimum distance to obstacles
@@ -118,6 +118,18 @@ public:
    * @return true if optimization succeeded
    */
   bool optimize();
+
+  /**
+   * @brief Re-compute obstacle costs for each trajectory pose using the
+   *        current pose positions. Call between optimize() passes to give
+   *        the solver fresh obstacle gradient information.
+   */
+  void updateObstacleCosts();
+
+  /**
+   * @brief Get the current configuration (for reading params in controller)
+   */
+  const TEBConfig &getConfig() const { return config_; }
 
   /**
    * @brief Get the optimized trajectory
@@ -196,6 +208,9 @@ private:
   // Previous velocity commands (for acceleration calculation)
   double prev_v_{0.0};
   double prev_w_{0.0};
+
+  // Pre-computed obstacle costs per pose (updated between optimization passes)
+  std::vector<double> per_pose_obstacle_cost_;
 };
 
 // ============================================================
@@ -366,12 +381,16 @@ private:
 /**
  * @brief Non-holonomic kinematics cost
  *
- * Penalizes deviation from the non-holonomic constraint:
- * the robot's heading should align with the motion direction.
+ * The robot must move in the direction it's facing.
+ * For each consecutive pair (pose_i, pose_ip1), the motion
+ * direction from pose_i → pose_ip1 must align with pose_i's heading.
+ *
+ * IMPORTANT: Only pose_i.theta is constrained here. The next pair
+ * (pose_ip1, pose_ip2) will constrain pose_ip1.theta, allowing
+ * the heading to change smoothly along a curve.
  *
  * Takes 2 parameter blocks: pose_i, pose_i+1
- * Residual: [weight * dist * heading_error_i, weight * dist *
- * heading_error_i+1]
+ * Residual: [weight * dist * heading_error_i]
  */
 class KinematicsCostFunctor {
 public:
@@ -382,7 +401,8 @@ public:
                   T *residual) const {
     T dx = pose_ip1[0] - pose_i[0];
     T dy = pose_ip1[1] - pose_i[1];
-    T dist = ceres::sqrt(dx * dx + dy * dy);
+    // Add small epsilon to avoid NaN derivative when dx=dy=0
+    T dist = ceres::sqrt(dx * dx + dy * dy) + T(1e-6);
 
     T motion_heading = ceres::atan2(dy, dx);
 
@@ -390,12 +410,7 @@ public:
     heading_err =
         ceres::atan2(ceres::sin(heading_err), ceres::cos(heading_err));
 
-    T heading_err_next = pose_ip1[2] - motion_heading;
-    heading_err_next = ceres::atan2(ceres::sin(heading_err_next),
-                                    ceres::cos(heading_err_next));
-
     residual[0] = T(weight_) * dist * heading_err;
-    residual[1] = T(weight_) * dist * heading_err_next;
     return true;
   }
 

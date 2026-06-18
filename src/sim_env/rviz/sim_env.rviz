@@ -5,6 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /dwa1
+        - /teb1
+        - /teb1/localplanner1
       Splitter Ratio: 0.5
     Tree Height: 1120
   - Class: rviz/Selection
@@ -273,7 +275,7 @@ Visualization Manager:
           Marker Topic: /move_base/PathPlanner/random_tree
           Name: random_tree
           Namespaces:
-            tree: true
+            {}
           Queue Size: 100
           Value: true
         - Class: rviz/Marker
@@ -446,30 +448,34 @@ Visualization Manager:
           Value: false
       Enabled: true
       Name: dwa
-    - Alpha: 1
-      Buffer Length: 1
-      Class: rviz/Path
-      Color: 25; 255; 0
+    - Class: rviz/Group
+      Displays:
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz/Path
+          Color: 25; 255; 0
+          Enabled: true
+          Head Diameter: 0.30000001192092896
+          Head Length: 0.20000000298023224
+          Length: 0.30000001192092896
+          Line Style: Lines
+          Line Width: 0.029999999329447746
+          Name: localplanner
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Queue Size: 10
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.10000000149011612
+          Shaft Length: 0.10000000149011612
+          Topic: /move_base/TEBController/teb_trajectory
+          Unreliable: false
+          Value: true
       Enabled: true
-      Head Diameter: 0.30000001192092896
-      Head Length: 0.20000000298023224
-      Length: 0.30000001192092896
-      Line Style: Lines
-      Line Width: 0.029999999329447746
-      Name: Path
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Pose Color: 255; 85; 255
-      Pose Style: None
-      Queue Size: 10
-      Radius: 0.029999999329447746
-      Shaft Diameter: 0.10000000149011612
-      Shaft Length: 0.10000000149011612
-      Topic: /move_base/MyDWAController/local_plan
-      Unreliable: false
-      Value: true
+      Name: teb
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

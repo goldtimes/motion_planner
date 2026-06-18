@@ -181,7 +181,7 @@ bool MyDWAController::isGoalReached() {
 //  computeVelocityCommands()
 //  This is the MAIN entry point called every control cycle.
 // ═══════════════════════════════════════════════════════════════════
-
+// 这里被move_base以一定的频率调用，用于计算速度命令
 bool MyDWAController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
   if (!initialized_) {
     ROS_ERROR("MyDWAController has not been initialized!");
