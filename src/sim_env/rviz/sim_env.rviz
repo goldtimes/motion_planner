@@ -5,7 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /dwa1
-        - /teb1
         - /teb1/localplanner1
       Splitter Ratio: 0.5
     Tree Height: 1120

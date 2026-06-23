@@ -235,6 +235,7 @@ bool MyDWAController::computeVelocityCommands(geometry_msgs::Twist &cmd_vel) {
 
   // ─── Step 2: Compute the dynamic window ───────────────────────
   double min_v, max_v, min_w, max_w;
+  // 约束 (b): 下一个 dt 内能加速/减速到的速度范围
   calcDynamicWindow(vx, vy, vth, min_v, max_v, min_w, max_w);
 
   ROS_DEBUG("MyDWA: vel=(%.3f, %.3f, %.3f)  dyn_window: v=[%.3f, %.3f]  "
